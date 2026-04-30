@@ -19,7 +19,7 @@ from chem_funs import ni, nr
 from phy_const import kb, Navo, hc, ag0
 from vulcan_cfg import nz
 
-from chemistry_jax import chemdf, neg_achemjac
+from chemistry_jax import chemdf, neg_achemjac, chem_jac_blocks
 compo = build_atm.compo
 compo_row = build_atm.compo_row
 species = chem_funs.spec_list
@@ -634,7 +634,162 @@ class ODESolver(object):
         dfdy[j_indx[nz-1], j_indx[(nz-1)-1]] -= 1./(dzi[nz-2])*(Dzz[nz-2]/dzi[nz-2]) *(ysum[nz-1]+ysum[nz-2])/(2.*ysum[(nz-1)-1]) \
                 -1./(dzi[-1])* Dzz[-1]/2.*(-1./Hpi[-1]+ms*g[-1]/(Navo*kb*Ti[-1])+alpha/Ti[-1]*(Tco[-1]-Tco[-2])/dzi[-1] )
 
-        return dfdy    
+        return dfdy
+
+    def lhs_jac_banded(self, var, atm):
+        """Build LHS = 1/(r*h)*I - dfdy directly in scipy banded format.
+
+        Equivalent to lhs_jac_tot but avoids the 118 MB dense block-diagonal
+        matrix.  Returns (ab, bw) ready for scipy.linalg.solve_banded.
+
+        Banded mapping:
+          ab[bw + (i-j), j] = dense[i, j]   (scipy convention)
+        where rows are layer-major: index iz*ni+sp.
+
+        Three banded rows are active for diffusion:
+          row bw      — same-layer, same-species (diagonal + eddy + mol)
+          row bw-ni   — upper off-diagonal  (layer j coupled to column j+1)
+          row bw+ni   — lower off-diagonal  (layer j coupled to column j-1)
+        Chemistry fills all rows bw±(0..ni-1) via the block fill.
+        """
+        y = var.y.copy()
+        if vulcan_cfg.use_condense:
+            ysum = np.sum(y[:, atm.gas_indx], axis=1)
+        else:
+            ysum = np.sum(y, axis=1)
+
+        dzi   = atm.dzi
+        Kzz   = atm.Kzz
+        Dzz   = atm.Dzz
+        vz    = atm.vz
+        alpha = atm.alpha   # (ni,)
+        Tco   = atm.Tco
+        ms    = atm.ms      # (ni,)
+        g     = atm.g
+        Ti    = atm.Ti
+        Hpi   = atm.Hpi
+
+        r  = 1. + 1./2.**0.5
+        c0 = 1./(r * var.dt)
+        bw = 2*ni - 1                          # 63 for ni=32
+        ab = np.zeros((2*bw + 1, ni*nz))
+
+        # ------------------------------------------------------------------
+        # 1. Chemistry Jacobian blocks → fill into banded matrix
+        #    jac[iz, si, sj] = d(dy_si/dt)/d(y_sj) at layer iz  (positive)
+        #    banded position: ab[bw + si - sj, iz*ni + sj] = -jac[iz, si, sj]
+        # ------------------------------------------------------------------
+        jac      = chem_jac_blocks(y, atm.M, var.k)          # (nz, ni, ni)
+        si, sj   = np.mgrid[0:ni, 0:ni]                       # (ni, ni) each
+        row_chem = bw + si - sj                               # (ni, ni)
+        col_chem = np.arange(nz)[:, None, None] * ni + sj    # (nz, ni, ni)
+        ab[row_chem[None], col_chem] = -jac                   # broadcast (1,ni,ni)×(nz,ni,ni)
+
+        # ------------------------------------------------------------------
+        # 2. Identity: add c0 to main diagonal (banded row bw)
+        # ------------------------------------------------------------------
+        ab[bw] += c0
+
+        # ------------------------------------------------------------------
+        # 3. Diffusion — reshape views of the three active rows
+        #
+        #    dfdy[j_indx[r], j_indx[c]] -= X  maps to:
+        #      r==c   → ab_diag [r]   -= X
+        #      c==r+1 → ab_upper[r+1] -= X   (upper off-diagonal in banded)
+        #      c==r-1 → ab_lower[r-1] -= X   (lower off-diagonal in banded)
+        # ------------------------------------------------------------------
+        ab_diag  = ab[bw].reshape(nz, ni)        # (nz, ni) view
+        ab_upper = ab[bw - ni].reshape(nz, ni)   # (nz, ni) view
+        ab_lower = ab[bw + ni].reshape(nz, ni)   # (nz, ni) view
+
+        # --- middle layers (vectorised over j = 1..nz-2) -----------------
+        j      = np.arange(1, nz - 1)            # (nz-2,)
+        dz_ave = 0.5*(dzi[j-1] + dzi[j])         # (nz-2,)
+        Dj     = Dzz[j]                           # (nz-2,)
+        Dj1    = Dzz[j-1]                         # (nz-2,)
+
+        # eddy diffusion (scalar per layer — broadcast over ni species)
+        ek_d = (-1./dz_ave * (Kzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/2.
+                              + Kzz[j-1]/dzi[j-1]*(ysum[j-1]+ysum[j])/2.) / ysum[j]
+                - ((vz[j] > 0)*vz[j] - (vz[j-1] < 0)*vz[j-1]) / dz_ave)   # (nz-2,)
+        ek_u = (1./dz_ave * Kzz[j]/dzi[j] * (ysum[j+1]+ysum[j])/(2.*ysum[j+1])
+                - (vz[j] < 0)*vz[j] / dz_ave)                               # (nz-2,)
+        ek_l = (1./dz_ave * Kzz[j-1]/dzi[j-1] * (ysum[j-1]+ysum[j])/(2.*ysum[j-1])
+                + (vz[j-1] > 0)*vz[j-1] / dz_ave)                          # (nz-2,)
+
+        ab_diag [j]   -= ek_d[:, None]
+        ab_upper[j+1] -= ek_u[:, None]
+        ab_lower[j-1] -= ek_l[:, None]
+
+        # molecular diffusion
+        # Dzz is (nz-1, ni) so Dj=Dzz[j] is (nz-2, ni) — no extra axis needed
+        # Hpi, Ti are (nz-1,) so Hpi[j] is (nz-2,) — needs [:, None] to broadcast
+        inv_dza  = 1./dz_ave                          # (nz-2,)
+        inv_dza2 = inv_dza / 2.                       # (nz-2,)
+        dTj      = (Tco[j+1] - Tco[j]) / dzi[j]     # (nz-2,)
+        dTj1     = (Tco[j] - Tco[j-1]) / dzi[j-1]  # (nz-2,)
+
+        # Dj is (nz-2, ni); all 1D quantities use [:, None] → (nz-2, 1)
+        term_j = Dj * (-1./Hpi[j][:, None]
+                       + ms * g[j][:, None] / (Navo*kb*Ti[j][:, None])
+                       + alpha * dTj[:, None] / Ti[j][:, None])                 # (nz-2, ni)
+        term_j1 = Dj1 * (-1./Hpi[j-1][:, None]
+                          + ms * g[j][:, None] / (Navo*kb*Ti[j-1][:, None])
+                          + alpha * dTj1[:, None] / Ti[j-1][:, None])           # (nz-2, ni)
+
+        # Dj/dzi[j][:, None]: divide (nz-2,ni) by (nz-2,1) → (nz-2,ni)
+        md_d_sc = (-inv_dza[:, None] * (Dj/dzi[j][:, None]*(ysum[j+1]+ysum[j])[:, None]/2.
+                                        + Dj1/dzi[j-1][:, None]*(ysum[j-1]+ysum[j])[:, None]/2.)
+                   / ysum[j][:, None])                                           # (nz-2, ni)
+        md_d = md_d_sc + inv_dza2[:, None] * (term_j - term_j1)                 # (nz-2, ni)
+
+        term_u = Dj * (-1./Hpi[j][:, None]
+                       + ms * g[j+1][:, None] / (Navo*kb*Ti[j][:, None])
+                       + alpha * dTj[:, None] / Ti[j][:, None])                 # (nz-2, ni)
+        md_u = (inv_dza[:, None] * Dj/dzi[j][:, None] * (ysum[j+1]+ysum[j])[:, None]/(2.*ysum[j+1][:, None])
+                + inv_dza2[:, None] * term_u)                                    # (nz-2, ni)
+
+        term_l = Dj1 * (-1./Hpi[j-1][:, None]
+                         + ms * g[j-1][:, None] / (Navo*kb*Ti[j-1][:, None])
+                         + alpha * dTj1[:, None] / Ti[j-1][:, None])            # (nz-2, ni)
+        md_l = (inv_dza[:, None] * Dj1/dzi[j-1][:, None] * (ysum[j-1]+ysum[j])[:, None]/(2.*ysum[j-1][:, None])
+                - inv_dza2[:, None] * term_l)                                    # (nz-2, ni)
+
+        ab_diag [j]   -= md_d
+        ab_upper[j+1] -= md_u
+        ab_lower[j-1] -= md_l
+
+        # --- bottom BC (j = 0) -------------------------------------------
+        mol_bc0 = (-1./Hpi[0] + ms*g[0]/(Navo*kb*Ti[0])
+                   + alpha/Ti[0]*(Tco[1]-Tco[0])/dzi[0])                    # (ni,)
+        ab_diag [0] -= (-1./dzi[0]*(Kzz[0]/dzi[0])*(ysum[1]+ysum[0])/(2.*ysum[0])
+                        - (vz[0] > 0)*vz[0]/dzi[0])
+        ab_diag [0] -= (-1./dzi[0]*(Dzz[0]/dzi[0])*(ysum[1]+ysum[0])/(2.*ysum[0])
+                        + 1./dzi[0]*Dzz[0]/2.*mol_bc0)
+        if vulcan_cfg.use_botflux:
+            ab_diag[0] -= -1.*atm.bot_vdep/dzi[0]
+        ab_upper[1] -= (1./dzi[0]*(Kzz[0]/dzi[0])*(ysum[1]+ysum[0])/(2.*ysum[1])
+                        - (vz[0] < 0)*vz[0]/dzi[0])
+        ab_upper[1] -= (1./dzi[0]*(Dzz[0]/dzi[0])*(ysum[1]+ysum[0])/(2.*ysum[1])
+                        + 1./dzi[0]*Dzz[0]/2.*mol_bc0)
+
+        # --- top BC (j = nz-1) -------------------------------------------
+        mol_bcN = (-1./Hpi[-1] + ms*g[-1]/(Navo*kb*Ti[-1])
+                   + alpha/Ti[-1]*(Tco[-1]-Tco[-2])/dzi[-1])                # (ni,)
+        ab_diag [nz-1] -= (-1./dzi[nz-2]*(Kzz[nz-2]/dzi[nz-2])
+                            *(ysum[nz-2]+ysum[nz-1])/(2.*ysum[nz-1])
+                            + (vz[-1] < 0)*vz[-1]/dzi[-1])
+        ab_diag [nz-1] -= (-1./dzi[nz-2]*(Dzz[nz-2]/dzi[nz-2])
+                            *(ysum[nz-1]+ysum[nz-2])/(2.*ysum[nz-1])
+                            - 1./dzi[-1]*Dzz[-1]/2.*mol_bcN)
+        ab_lower[nz-2] -= (1./dzi[nz-2]*(Kzz[nz-2]/dzi[nz-2])
+                            *(ysum[nz-2]+ysum[nz-1])/(2.*ysum[nz-2])
+                            + (vz[-1] > 0)*vz[-1]/dzi[-1])
+        ab_lower[nz-2] -= (1./dzi[nz-2]*(Dzz[nz-2]/dzi[nz-2])
+                            *(ysum[nz-1]+ysum[nz-2])/(2.*ysum[nz-2])
+                            - 1./dzi[-1]*Dzz[-1]/2.*mol_bcN)
+
+        return ab, bw
 
     def lhs_jac_tot_vm(self, var, atm):      
         """
@@ -1461,51 +1616,73 @@ class Ros2(ODESolver):
         y, ymix, h, k = var.y, var.ymix, var.dt, var.k
         M, dzi, Kzz = atm.M, atm.dzi, atm.Kzz
         
-        if vulcan_cfg.use_vm_mol == False:    
+        if vulcan_cfg.use_vm_mol == False:
             if vulcan_cfg.use_moldiff == True and vulcan_cfg.use_settling == False:
-                diffdf = self.diffdf
-                jac_tot = self.lhs_jac_tot
+                diffdf    = self.diffdf
+                jac_fn    = self.lhs_jac_banded   # returns (ab, bw) directly
+                use_banded = True
             elif vulcan_cfg.use_moldiff == True and vulcan_cfg.use_settling == True:
-                diffdf = self.diffdf_settling
-                jac_tot = self.lhs_jac_settling
+                diffdf    = self.diffdf_settling
+                jac_fn    = self.lhs_jac_settling
+                use_banded = False
             else:
-                diffdf = self.diffdf_no_mol
-                jac_tot = self.lhs_jac_no_mol
+                diffdf    = self.diffdf_no_mol
+                jac_fn    = self.lhs_jac_no_mol
+                use_banded = False
         else: # vulcan_cfg.use_vm_mol == True:
             if vulcan_cfg.use_moldiff == True and vulcan_cfg.use_settling == False:
-                diffdf = self.diffdf_vm
-                jac_tot = self.lhs_jac_tot_vm
+                diffdf    = self.diffdf_vm
+                jac_fn    = self.lhs_jac_tot_vm
+                use_banded = False
             elif vulcan_cfg.use_moldiff == True and vulcan_cfg.use_settling == True:
-                diffdf = self.diffdf_settling_vm
-                jac_tot = self.lhs_jac_settling_vm
+                diffdf    = self.diffdf_settling_vm
+                jac_fn    = self.lhs_jac_settling_vm
+                use_banded = False
             else:
-                diffdf = self.diffdf_no_mol
-                jac_tot = self.lhs_jac_no_mol
-            
+                diffdf    = self.diffdf_no_mol
+                jac_fn    = self.lhs_jac_no_mol
+                use_banded = False
+
         r = 1. + 1./2.**0.5
 
         df = chemdf(y,M,k).flatten() + diffdf(y, atm).flatten()
-        lhs = jac_tot(var, atm)
-        
-        # Fixed species including only below the cold trap # TEST 2022
-        if vulcan_cfg.use_condense == True and para.fix_species_start == True:
-            for sp in vulcan_cfg.fix_species:
-                if vulcan_cfg.fix_species_from_coldtrap_lev == False: # if Ptop is not specified, fix the whole column # TEST2022
-                    pass
-                else:
-                    pfix_indx = atm.conden_min_lev[sp]
-                    atm.fix_sp_indx[sp] = np.arange(species.index(sp), species.index(sp) + ni*(pfix_indx), ni)
-                
-                df[atm.fix_sp_indx[sp]] = 0
-                lhs[atm.fix_sp_indx[sp],:] = 0
-                lhs[atm.fix_sp_indx[sp],atm.fix_sp_indx[sp]] = 1./(r*h)  # cuz the jacobian func is directly outputing 1./(r*h)*sparse.identity(ni*nz) - dfdy                        
-        
-        if vulcan_cfg.use_ion == True:
-            df[atm.fix_e_indx] = 0
-            lhs[atm.fix_e_indx,:] = 0
-            lhs[atm.fix_e_indx,atm.fix_e_indx] = 1./(r*h)
-        
-        lhs_b, bw = self.store_bandM(lhs,ni,nz)
+
+        if use_banded:
+            lhs_b, bw = jac_fn(var, atm)
+            # Fixed species: zero column in banded form, restore diagonal
+            if vulcan_cfg.use_condense == True and para.fix_species_start == True:
+                for sp in vulcan_cfg.fix_species:
+                    if vulcan_cfg.fix_species_from_coldtrap_lev == False:
+                        pass
+                    else:
+                        pfix_indx = atm.conden_min_lev[sp]
+                        atm.fix_sp_indx[sp] = np.arange(species.index(sp), species.index(sp) + ni*(pfix_indx), ni)
+                    df[atm.fix_sp_indx[sp]] = 0
+                    lhs_b[:, atm.fix_sp_indx[sp]] = 0.
+                    lhs_b[bw, atm.fix_sp_indx[sp]] = 1./(r*h)
+            if vulcan_cfg.use_ion == True:
+                df[atm.fix_e_indx] = 0
+                lhs_b[:, atm.fix_e_indx] = 0.
+                lhs_b[bw, atm.fix_e_indx] = 1./(r*h)
+        else:
+            lhs = jac_fn(var, atm)
+            # Fixed species: dense row zeroing
+            if vulcan_cfg.use_condense == True and para.fix_species_start == True:
+                for sp in vulcan_cfg.fix_species:
+                    if vulcan_cfg.fix_species_from_coldtrap_lev == False:
+                        pass
+                    else:
+                        pfix_indx = atm.conden_min_lev[sp]
+                        atm.fix_sp_indx[sp] = np.arange(species.index(sp), species.index(sp) + ni*(pfix_indx), ni)
+                    df[atm.fix_sp_indx[sp]] = 0
+                    lhs[atm.fix_sp_indx[sp],:] = 0
+                    lhs[atm.fix_sp_indx[sp],atm.fix_sp_indx[sp]] = 1./(r*h)
+            if vulcan_cfg.use_ion == True:
+                df[atm.fix_e_indx] = 0
+                lhs[atm.fix_e_indx,:] = 0
+                lhs[atm.fix_e_indx,atm.fix_e_indx] = 1./(r*h)
+            lhs_b, bw = self.store_bandM(lhs, ni, nz)
+
         k1_flat = scipy.linalg.solve_banded((bw,bw),lhs_b,df)
         k1 = k1_flat.reshape(y.shape)
         

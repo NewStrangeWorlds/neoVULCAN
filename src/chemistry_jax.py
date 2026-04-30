@@ -887,6 +887,18 @@ def k_dict_to_array(k_dict):
 # Drop-in replacements for chem_funs.chemdf and chem_funs.neg_symjac
 # ---------------------------------------------------------------------------
 
+def chem_jac_blocks(y, M, k_dict):
+    """Return the chemistry Jacobian as a (nz, ni, ni) numpy array.
+
+    Each jac[iz] is the positive Jacobian d(dy/dt)/dy for layer iz.
+    Caller is responsible for signs and for assembling into the LHS matrix.
+    """
+    k_arr = k_dict_to_array(k_dict)
+    return np.array(_jac_jit(jnp.asarray(y),
+                             jnp.asarray(M),
+                             jnp.asarray(k_arr)))   # writable copy
+
+
 def chemdf(y, M, k_dict):
     """Drop-in for chem_funs.chemdf(y, M, k).
 
@@ -916,6 +928,6 @@ def neg_achemjac(y, M, k_dict):
                           jnp.asarray(k_arr))         # (nz, ni, ni)
     jac_np = np.asarray(jac_blocks)                   # back to CPU NumPy
 
-    # Build block-diagonal (ni*nz, ni*nz) matrix from (nz, ni, ni) blocks.
-    dfdy = _scipy_block_diag(*jac_np)
-    return -dfdy
+    # Negate the small (nz, ni, ni) blocks (0.94 MB) before building the
+    # (ni*nz, ni*nz) block-diagonal (118 MB) to avoid a second large pass.
+    return _scipy_block_diag(*(-jac_np))
