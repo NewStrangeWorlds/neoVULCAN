@@ -19,8 +19,7 @@ from chem_funs import ni, nr
 from phy_const import kb, Navo, hc, ag0
 from vulcan_cfg import nz
 
-chemdf = chem_funs.chemdf
-neg_achemjac = chem_funs.neg_symjac
+from chemistry_jax import chemdf, neg_achemjac
 compo = build_atm.compo
 compo_row = build_atm.compo_row
 species = chem_funs.spec_list
@@ -45,16 +44,15 @@ class ODESolver(object):
         function of eddy diffusion without molecular diffusion, with zero-flux boundary conditions and non-uniform grids (dzi)
         in the form of Aj*y_j + Bj+1*y_j+1 + Cj-1*y_j-1
         """
-        y = y.copy()
         # TEST excluding non-gaseous species
         if vulcan_cfg.non_gas_sp:
             ysum = np.sum(y[:,atm.gas_indx], axis=1)
         else: ysum = np.sum(y, axis=1)
         # TEST excluding non-gaseous species
-        dzi = atm.dzi.copy()
-        Kzz = atm.Kzz.copy()
-        vz = atm.vz.copy()
-        
+        dzi = atm.dzi
+        Kzz = atm.Kzz
+        vz = atm.vz
+
         A, B, C = np.zeros(nz), np.zeros(nz), np.zeros(nz)
 
         A[0] = -1./(dzi[0])*(Kzz[0]/dzi[0]) *(ysum[1]+ysum[0])/2. /ysum[0]     
@@ -104,22 +102,20 @@ class ODESolver(object):
         in the form of Aj*y_j + Bj+1*y_j+1 + Cj-1*y_j-1
         """
         
-        y = y.copy()
-        
         # TEST condensation excluding non-gaseous species
         if vulcan_cfg.non_gas_sp:
             ysum = np.sum(y[:,atm.gas_indx], axis=1)
         else: ysum = np.sum(y, axis=1)
         # TEST condensation excluding non-gaseous species
-    
-        dzi = atm.dzi.copy()
-        Kzz = atm.Kzz.copy()
-        vz = atm.vz.copy()
-        Dzz = atm.Dzz.copy()
-        alpha = atm.alpha.copy()
-        Tco = atm.Tco.copy()
-        ms = atm.ms.copy()
-        Hp = atm.Hp.copy()
+
+        dzi = atm.dzi
+        Kzz = atm.Kzz
+        vz = atm.vz
+        Dzz = atm.Dzz
+        alpha = atm.alpha
+        Tco = atm.Tco
+        ms = atm.ms
+        Hp = atm.Hp
         g = atm.g
         Ti = atm.Ti
         Hpi = atm.Hpi
@@ -208,22 +204,20 @@ class ODESolver(object):
         inc. vm from molecular diffusion
         """
         
-        y = y.copy()
-        
         # TEST condensation excluding non-gaseous species
         if vulcan_cfg.non_gas_sp:
             ysum = np.sum(y[:,atm.gas_indx], axis=1)
         else: ysum = np.sum(y, axis=1)
         # TEST condensation excluding non-gaseous species
-    
-        dzi = atm.dzi.copy()
-        Kzz = atm.Kzz.copy()
-        vz = atm.vz.copy()
-        Dzz = atm.Dzz.copy()
-        alpha = atm.alpha.copy()
-        Tco = atm.Tco.copy()
-        ms = atm.ms.copy()
-        Hp = atm.Hp.copy()
+
+        dzi = atm.dzi
+        Kzz = atm.Kzz
+        vz = atm.vz
+        Dzz = atm.Dzz
+        alpha = atm.alpha
+        Tco = atm.Tco
+        ms = atm.ms
+        Hp = atm.Hp
         g = atm.g
         Ti = atm.Ti
         Hpi = atm.Hpi
@@ -304,35 +298,33 @@ class ODESolver(object):
         in the form of Aj*y_j + Bj+1*y_j+1 + Cj-1*y_j-1
         """
         
-        y = y.copy()
-        
         # TEST condensation excluding non-gaseous species
         if vulcan_cfg.non_gas_sp:
             ysum = np.sum(y[:,atm.gas_indx], axis=1)
         else: ysum = np.sum(y, axis=1)
         # TEST condensation excluding non-gaseous species
-    
-        dzi = atm.dzi.copy()
-        Kzz = atm.Kzz.copy()
-        vz = atm.vz.copy()
-        Dzz = atm.Dzz.copy()
-        vs = atm.vs.copy()
-        alpha = atm.alpha.copy()
-        Tco = atm.Tco.copy()
-        ms = atm.ms.copy()
-        Hp = atm.Hp.copy()
+
+        dzi = atm.dzi
+        Kzz = atm.Kzz
+        vz = atm.vz
+        Dzz = atm.Dzz
+        vs = atm.vs
+        alpha = atm.alpha
+        Tco = atm.Tco
+        ms = atm.ms
+        Hp = atm.Hp
         g = atm.g
         Ti = atm.Ti
         Hpi = atm.Hpi
-        
+
         A, B, C = np.zeros(nz), np.zeros(nz), np.zeros(nz)
         Ai, Bi, Ci = [ np.zeros((nz,ni)) for i in range(3)]
-        
-        A[0] = -1./(dzi[0])*(Kzz[0]/dzi[0]) *(ysum[1]+ysum[0])/2. /ysum[0]     
-        B[0] = 1./(dzi[0])*(Kzz[0]/dzi[0]) *(ysum[1]+ysum[0])/2. /ysum[1] 
-        C[0] = 0 
-        A[nz-1] = -1./(dzi[nz-2])*(Kzz[nz-2]/dzi[nz-2]) *(ysum[nz-1]+ysum[nz-2])/2. /ysum[nz-1] 
-        B[nz-1] = 0 
+
+        A[0] = -1./(dzi[0])*(Kzz[0]/dzi[0]) *(ysum[1]+ysum[0])/2. /ysum[0]
+        B[0] = 1./(dzi[0])*(Kzz[0]/dzi[0]) *(ysum[1]+ysum[0])/2. /ysum[1]
+        C[0] = 0
+        A[nz-1] = -1./(dzi[nz-2])*(Kzz[nz-2]/dzi[nz-2]) *(ysum[nz-1]+ysum[nz-2])/2. /ysum[nz-1]
+        B[nz-1] = 0
         C[nz-1] = 1./(dzi[nz-2])*(Kzz[nz-2]/dzi[nz-2]) *(ysum[nz-1]+ysum[nz-2])/2. /ysum[nz-2] 
         
         # vertical adection (with closed B.C.) 
@@ -403,25 +395,23 @@ class ODESolver(object):
         in the form of Aj*y_j + Bj+1*y_j+1 + Cj-1*y_j-1
         """
         
-        y = y.copy()
-        
         if vulcan_cfg.non_gas_sp:
             ysum = np.sum(y[:,atm.gas_indx], axis=1)
         else: ysum = np.sum(y, axis=1)
-        
-        dzi = atm.dzi.copy()
-        Kzz = atm.Kzz.copy()
-        vz = atm.vz.copy()
-        Dzz = atm.Dzz.copy()
-        vs = atm.vs.copy()
-        alpha = atm.alpha.copy()
-        Tco = atm.Tco.copy()
-        ms = atm.ms.copy()
-        Hp = atm.Hp.copy()
+
+        dzi = atm.dzi
+        Kzz = atm.Kzz
+        vz = atm.vz
+        Dzz = atm.Dzz
+        vs = atm.vs
+        alpha = atm.alpha
+        Tco = atm.Tco
+        ms = atm.ms
+        Hp = atm.Hp
         g = atm.g
         Ti = atm.Ti
         Hpi = atm.Hpi
-        
+
         vm = atm.vm
         # shape: nz x ni
         # vm defined in build.py

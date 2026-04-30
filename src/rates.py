@@ -19,8 +19,7 @@ from chem_funs import ni, nr
 from phy_const import kb, Navo, hc, ag0
 from vulcan_cfg import nz
 
-chemdf = chem_funs.chemdf
-neg_achemjac = chem_funs.neg_symjac
+from chemistry_jax import chemdf, neg_achemjac
 compo = build_atm.compo
 compo_row = build_atm.compo_row
 species = chem_funs.spec_list
