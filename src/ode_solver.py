@@ -69,17 +69,14 @@ class ODESolver(object):
         C[-1] += ( (vz[-1]>0)*vz[-1] )/dzi[-1]
         # vertical adection
         
-        for j in range(1,nz-1):  
-            dz_ave = 0.5*(dzi[j-1] + dzi[j])
-            A[j] = -2./(dzi[j-1] + dzi[j])* ( Kzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/2. + Kzz[j-1]/dzi[j-1]*(ysum[j]+ysum[j-1])/2. ) /ysum[j]  
-            B[j] = 2./(dzi[j-1] + dzi[j])*Kzz[j]/dzi[j] *(ysum[j+1]+ysum[j])/2. /ysum[j+1]
-            C[j] = 2./(dzi[j-1] + dzi[j])*Kzz[j-1]/dzi[j-1] *(ysum[j]+ysum[j-1])/2. /ysum[j-1]
-            
-            # vertical adection
-            A[j] += -( (vz[j]>0)*vz[j] - (vz[j-1]<0)*vz[j-1] )/dz_ave
-            B[j] += -( (vz[j]<0)*vz[j] )/dz_ave
-            C[j] += ( (vz[j-1]>0)*vz[j-1] )/dz_ave
-            # vertical adection
+        j = np.arange(1, nz-1)
+        dz_ave = 0.5*(dzi[j-1] + dzi[j])
+        A[j] = -1./dz_ave * ( Kzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/2. + Kzz[j-1]/dzi[j-1]*(ysum[j]+ysum[j-1])/2. ) /ysum[j]
+        B[j] = 1./dz_ave * Kzz[j]/dzi[j] *(ysum[j+1]+ysum[j])/2. /ysum[j+1]
+        C[j] = 1./dz_ave * Kzz[j-1]/dzi[j-1] *(ysum[j]+ysum[j-1])/2. /ysum[j-1]
+        A[j] += -( (vz[j]>0)*vz[j] - (vz[j-1]<0)*vz[j-1] )/dz_ave
+        B[j] += -( (vz[j]<0)*vz[j] )/dz_ave
+        C[j] += ( (vz[j-1]>0)*vz[j-1] )/dz_ave
             
         tmp0 = A[0]*y[0] + B[0]*y[1]
         tmp1 = np.ndarray.flatten( (np.vstack(A[1:nz-1])*y[1:(nz-1)] + np.vstack(B[1:nz-1])*y[1+1:(nz-1)+1] + np.vstack(C[1:nz-1])*y[1-1:(nz-1)-1]) )
@@ -158,27 +155,29 @@ class ODESolver(object):
         Ci[nz-1] = 1./(dzi[-1])*(Dzz[nz-2]/dzi[-1]) *(ysum[nz-1]+ysum[nz-2])/2. /ysum[nz-2] \
         -1./(dzi[-1])* Dzz[-1]/2.*(-1./Hpi[-1]+ms*g[-1]/(Navo*kb*Ti[-1])+alpha/Ti[-1]*(Tco[-1]-Tco[-2])/dzi[-1] )
         
-        for j in range(1,nz-1):
-            dz_ave = 0.5*(dzi[j-1] + dzi[j])
-            A[j] = -1./dz_ave * ( Kzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/2. + Kzz[j-1]/dzi[j-1]*(ysum[j]+ysum[j-1])/2. ) /ysum[j]  
-            B[j] = 1./dz_ave * Kzz[j]/dzi[j] *(ysum[j+1]+ysum[j])/2. /ysum[j+1]
-            C[j] = 1./dz_ave * Kzz[j-1]/dzi[j-1] *(ysum[j]+ysum[j-1])/2. /ysum[j-1]
-            
-            # vertical adection
-            A[j] += -( (vz[j]>0)*vz[j] - (vz[j-1]<0)*vz[j-1] )/dz_ave
-            B[j] += -( (vz[j]<0)*vz[j] )/dz_ave
-            C[j] += ( (vz[j-1]>0)*vz[j-1] )/dz_ave
-            # vertical adection
-            
-            # Ai in the shape of nz*ni and Ai[j] in the shape of ni 
-            Ai[j] = -1./dz_ave * ( Dzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/2. + Dzz[j-1]/dzi[j-1]*(ysum[j]+ysum[j-1])/2. ) /ysum[j]  
-            Bi[j] = 1./dz_ave * Dzz[j]/dzi[j] *(ysum[j+1]+ysum[j])/2. /ysum[j+1]
-            Ci[j] = 1./dz_ave * Dzz[j-1]/dzi[j-1] *(ysum[j]+ysum[j-1])/2. /ysum[j-1]
-            
-            Ai[j] += 1./(2.*dz_ave)*( Dzz[j]*(-1./Hpi[j]+ms*g[j]/(Navo*kb*Ti[j])+alpha/Ti[j]*(Tco[j+1]-Tco[j])/dzi[j] ) \
-            - Dzz[j-1]*(-1./Hpi[j-1]+ms*g[j]/(Navo*kb*Ti[j-1])+ alpha/Ti[j-1]*(Tco[j]-Tco[j-1])/dzi[j-1] ) ) #/ysum[j]
-            Bi[j] += 1./(2.*dz_ave)* Dzz[j]*(-1./Hpi[j]+ms*g[j+1]/(Navo*kb*Ti[j])+alpha/Ti[j]*(Tco[j+1]-Tco[j])/dzi[j] )
-            Ci[j] += -1./(2.*dz_ave)* Dzz[j-1]*(-1./Hpi[j-1]+ms*g[j-1]/(Navo*kb*Ti[j-1])+alpha/Ti[j-1]*(Tco[j]-Tco[j-1])/dzi[j-1] )
+        j = np.arange(1, nz-1)
+        dz_ave = 0.5*(dzi[j-1] + dzi[j])
+        dza  = dz_ave[:,None]   # (nz-2, 1) for broadcasting with (nz-2, ni)
+        Dj   = Dzz[j]           # (nz-2, ni)
+        Dj1  = Dzz[j-1]        # (nz-2, ni)
+        dTj  = (Tco[j+1] - Tco[j])   / dzi[j]    # (nz-2,)
+        dTj1 = (Tco[j]   - Tco[j-1]) / dzi[j-1]  # (nz-2,)
+
+        A[j] = -1./dz_ave * ( Kzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/2. + Kzz[j-1]/dzi[j-1]*(ysum[j]+ysum[j-1])/2. ) /ysum[j]
+        B[j] = 1./dz_ave * Kzz[j]/dzi[j] *(ysum[j+1]+ysum[j])/2. /ysum[j+1]
+        C[j] = 1./dz_ave * Kzz[j-1]/dzi[j-1] *(ysum[j]+ysum[j-1])/2. /ysum[j-1]
+        A[j] += -( (vz[j]>0)*vz[j] - (vz[j-1]<0)*vz[j-1] )/dz_ave
+        B[j] += -( (vz[j]<0)*vz[j] )/dz_ave
+        C[j] += ( (vz[j-1]>0)*vz[j-1] )/dz_ave
+
+        Ai[j] = ( -1./dza * ( Dj/dzi[j][:,None]*(ysum[j+1]+ysum[j])[:,None]/2.
+                              + Dj1/dzi[j-1][:,None]*(ysum[j]+ysum[j-1])[:,None]/2. ) / ysum[j][:,None]
+                 + 1./(2.*dza) * ( Dj  * (-1./Hpi[j][:,None]   + ms*g[j][:,None]  /(Navo*kb*Ti[j][:,None])   + alpha*dTj[:,None] /Ti[j][:,None])
+                                 - Dj1 * (-1./Hpi[j-1][:,None] + ms*g[j][:,None]  /(Navo*kb*Ti[j-1][:,None]) + alpha*dTj1[:,None]/Ti[j-1][:,None]) ) )
+        Bi[j] = ( 1./dza * Dj/dzi[j][:,None] * (ysum[j+1]+ysum[j])[:,None]/2. / ysum[j+1][:,None]
+                 + 1./(2.*dza) * Dj * (-1./Hpi[j][:,None] + ms*g[j+1][:,None]/(Navo*kb*Ti[j][:,None]) + alpha*dTj[:,None]/Ti[j][:,None]) )
+        Ci[j] = ( 1./dza * Dj1/dzi[j-1][:,None] * (ysum[j]+ysum[j-1])[:,None]/2. / ysum[j-1][:,None]
+                 - 1./(2.*dza) * Dj1 * (-1./Hpi[j-1][:,None] + ms*g[j-1][:,None]/(Navo*kb*Ti[j-1][:,None]) + alpha*dTj1[:,None]/Ti[j-1][:,None]) )
  
         tmp0 = (A[0] + Ai[0])*y[0] + (B[0] + Bi[0])*y[1] # shape of ni-long 1D array  
         tmp1 = np.ndarray.flatten( (np.vstack(A[1:nz-1])*y[1:(nz-1)] + np.vstack(B[1:nz-1])*y[1+1:(nz-1)+1] + np.vstack(C[1:nz-1])*y[1-1:(nz-1)-1]) ) 

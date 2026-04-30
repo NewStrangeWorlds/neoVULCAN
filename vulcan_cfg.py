@@ -162,7 +162,7 @@ rtol_max = 2.5
 # ====== Setting up for ouwtput and plotting ======
 # plotting:
 plot_TP = False
-use_live_plot = True
+use_live_plot = False
 use_live_flux = False
 use_plot_end = False
 use_plot_evo = False

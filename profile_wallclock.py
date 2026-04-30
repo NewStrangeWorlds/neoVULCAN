@@ -45,17 +45,18 @@ def cfg_overrides(n_steps: int) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Patch for ode_solver.py — replaces the two hot lines in solver() with
-# timed versions and prints a summary when the module is unloaded (atexit).
+# Patch for ode_solver.py — instruments the banded solver() with inline
+# perf_counter calls and prints a summary at exit (via atexit).
+#
+# The banded solver() call sequence (default config, use_lhs_jac_banded=True):
+#   A:  df = chemdf(y,M,k) + diffdf(y, atm)          ← first RHS
+#       if use_banded:
+#   B:      lhs_b, bw = jac_fn(var, atm)              ← Jacobian (banded)
+#   C:  k1_flat = solve_banded(...)                   ← k1 solve (no store_bandM)
+#       k1 = k1_flat.reshape(...)
+#   D:  df = chemdf(yk2,M,k) + diffdf(yk2, atm)      ← second RHS
+#   E:  k2 = solve_banded(...)                        ← k2 solve
 # ---------------------------------------------------------------------------
-
-# The two lines we replace are:
-#   line A:  df = chemdf(y,M,k).flatten() + diffdf(y, atm).flatten()
-#   line B:  lhs = jac_tot(var, atm)
-#   line C:  lhs_b, bw = self.store_bandM(lhs,ni,nz)
-#   line D:  k1_flat = scipy.linalg.solve_banded((bw,bw),lhs_b,df)
-#   line E:  df = chemdf(yk2,M,k).flatten() + diffdf(yk2, atm).flatten()
-#   line F:  k2 = scipy.linalg.solve_banded((bw,bw),lhs_b,rhs)
 
 _PATCH_HEADER = '''\
 import atexit as _atexit, time as _time
@@ -83,74 +84,87 @@ def _print_timing():
 _atexit.register(_print_timing)
 '''
 
-# Replacement for the timed section inside solver()
-_OLD_SOLVER_CORE = \
-    '        df = chemdf(y,M,k).flatten() + diffdf(y, atm).flatten()\n' \
-    '        lhs = jac_tot(var, atm)\n'
+# Patch A+B: split first chemdf/diffdf; time banded Jacobian call.
+# Unique because the non-banded solver variant has `lhs = jac_tot(var, atm)`
+# immediately after `df = chemdf...`, not `if use_banded:`.
+_OLD_SOLVER_CORE = (
+    '        df = chemdf(y,M,k).flatten() + diffdf(y, atm).flatten()\n'
+    '\n'
+    '        if use_banded:\n'
+    '            lhs_b, bw = jac_fn(var, atm)\n'
+)
 
-_NEW_SOLVER_CORE = '''\
-        _t0 = _time.perf_counter()
-        _chem1 = chemdf(y,M,k).flatten()
-        _T['chemdf'] += _time.perf_counter() - _t0
+_NEW_SOLVER_CORE = (
+    "        _t0 = _time.perf_counter()\n"
+    "        _chem1 = chemdf(y,M,k).flatten()\n"
+    "        _T['chemdf'] += _time.perf_counter() - _t0\n"
+    "\n"
+    "        _t0 = _time.perf_counter()\n"
+    "        _diff1 = diffdf(y, atm).flatten()\n"
+    "        _T['diffdf'] += _time.perf_counter() - _t0\n"
+    "\n"
+    "        df = _chem1 + _diff1\n"
+    "\n"
+    "        if use_banded:\n"
+    "            _t0 = _time.perf_counter()\n"
+    "            lhs_b, bw = jac_fn(var, atm)\n"
+    "            _T['neg_achemjac'] += _time.perf_counter() - _t0\n"
+)
 
-        _t0 = _time.perf_counter()
-        _diff1 = diffdf(y, atm).flatten()
-        _T['diffdf'] += _time.perf_counter() - _t0
-
-        df = _chem1 + _diff1
-
-        _t0 = _time.perf_counter()
-        lhs = jac_tot(var, atm)
-        _T['neg_achemjac'] += _time.perf_counter() - _t0
-'''
-
-_OLD_BANDSOL1 = \
-    '        lhs_b, bw = self.store_bandM(lhs,ni,nz)\n' \
+# Patch C: time k1 solve.
+# Unique because in the non-banded variant there is a blank line between
+# `k1_flat = solve_banded(...)` and `k1 = k1_flat.reshape(...)`.
+_OLD_K1SOLVE = (
     '        k1_flat = scipy.linalg.solve_banded((bw,bw),lhs_b,df)\n'
+    '        k1 = k1_flat.reshape(y.shape)\n'
+)
 
-_NEW_BANDSOL1 = '''\
-        _t0 = _time.perf_counter()
-        lhs_b, bw = self.store_bandM(lhs,ni,nz)
-        _T['store_bandM'] += _time.perf_counter() - _t0
+_NEW_K1SOLVE = (
+    "        _t0 = _time.perf_counter()\n"
+    "        k1_flat = scipy.linalg.solve_banded((bw,bw),lhs_b,df)\n"
+    "        _T['solve_banded'] += _time.perf_counter() - _t0\n"
+    "        k1 = k1_flat.reshape(y.shape)\n"
+)
 
-        _t0 = _time.perf_counter()
-        k1_flat = scipy.linalg.solve_banded((bw,bw),lhs_b,df)
-        _T['solve_banded'] += _time.perf_counter() - _t0
-'''
-
-_OLD_CHEM2 = \
+# Patch D: split second chemdf/diffdf.
+# Two occurrences exist; replace(..., 1) hits the banded-path one first.
+_OLD_CHEM2 = (
     '        df = chemdf(yk2,M,k).flatten() + diffdf(yk2, atm).flatten()\n'
+)
 
-_NEW_CHEM2 = '''\
-        _t0 = _time.perf_counter()
-        _chem2 = chemdf(yk2,M,k).flatten()
-        _T['chemdf'] += _time.perf_counter() - _t0
+_NEW_CHEM2 = (
+    "        _t0 = _time.perf_counter()\n"
+    "        _chem2 = chemdf(yk2,M,k).flatten()\n"
+    "        _T['chemdf'] += _time.perf_counter() - _t0\n"
+    "\n"
+    "        _t0 = _time.perf_counter()\n"
+    "        _diff2 = diffdf(yk2, atm).flatten()\n"
+    "        _T['diffdf'] += _time.perf_counter() - _t0\n"
+    "\n"
+    "        df = _chem2 + _diff2\n"
+)
 
-        _t0 = _time.perf_counter()
-        _diff2 = diffdf(yk2, atm).flatten()
-        _T['diffdf'] += _time.perf_counter() - _t0
-
-        df = _chem2 + _diff2
-'''
-
-_OLD_BANDSOL2 = \
+# Patch E: time k2 solve and count the completed solver() call.
+# Two occurrences exist; replace(..., 1) hits the banded-path one first.
+_OLD_BANDSOL2 = (
     '        k2 = scipy.linalg.solve_banded((bw,bw),lhs_b,rhs)\n'
+)
 
-_NEW_BANDSOL2 = '''\
-        _t0 = _time.perf_counter()
-        k2 = scipy.linalg.solve_banded((bw,bw),lhs_b,rhs)
-        _T['solve_banded'] += _time.perf_counter() - _t0
-        _N[0] += 1
-'''
+_NEW_BANDSOL2 = (
+    "        _t0 = _time.perf_counter()\n"
+    "        k2 = scipy.linalg.solve_banded((bw,bw),lhs_b,rhs)\n"
+    "        _T['solve_banded'] += _time.perf_counter() - _t0\n"
+    "        _N[0] += 1\n"
+)
 
 
 def apply_patches(src: str) -> str:
     """Apply all timing patches to ode_solver.py source."""
     patches = [
-        (_OLD_SOLVER_CORE,  _NEW_SOLVER_CORE),
-        (_OLD_BANDSOL1,     _NEW_BANDSOL1),
-        (_OLD_CHEM2,        _NEW_CHEM2),
-        (_OLD_BANDSOL2,     _NEW_BANDSOL2),
+        (_OLD_SOLVER_CORE, _NEW_SOLVER_CORE),
+        (_OLD_K1SOLVE,     _NEW_K1SOLVE),
+        (_OLD_CHEM2,       _NEW_CHEM2),
+        (_OLD_BANDSOL2,    _NEW_BANDSOL2),
     ]
     for old, new in patches:
         if old not in src:
@@ -159,11 +173,7 @@ def apply_patches(src: str) -> str:
             )
         src = src.replace(old, new, 1)
 
-    # Also patch the integration step counter (in integration.py)
-    # — we do this via the atexit print, so no change needed here.
-
-    # Prepend the timer header right after the last top-level import
-    # (insert after the first blank line following import statements)
+    # Prepend the timer header right after the last top-level import.
     lines = src.splitlines(keepends=True)
     insert_at = 0
     for i, line in enumerate(lines):
