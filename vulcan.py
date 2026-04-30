@@ -175,10 +175,8 @@ if vulcan_cfg.use_photo == True:
     #rate.read_cross(data_var)
     make_atm.read_sflux(data_var, data_atm)
     
-    # computing the optical depth (tau), flux, and the photolisys rates (J) for the first time 
-    solver.compute_tau(data_var, data_atm)
-    solver.compute_flux(data_var, data_atm)
-    solver.compute_J(data_var, data_atm)
+    # computing the optical depth (tau), flux, and the photolisys rates (J) for the first time
+    solver.rt(data_var, data_atm)
     # they will be updated in op.Integration by the assigned frequence
     
     # removing rates

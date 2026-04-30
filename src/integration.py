@@ -67,11 +67,7 @@ class Integration(object):
                     para.switch_final_photo_frq = True
             
             if vulcan_cfg.use_photo == True and para.count % self.update_photo_frq == 0:
-                self.odesolver.compute_tau(var, atm)
-                self.odesolver.compute_flux(var, atm)
-                self.odesolver.compute_J(var, atm)
-                if vulcan_cfg.use_ion == True: # photoionisation rate
-                    self.odesolver.compute_Jion(var, atm)
+                self.odesolver.rt(var, atm)
                                     
             # integrating one step
             var, para = self.odesolver.one_step(var, atm, para)
