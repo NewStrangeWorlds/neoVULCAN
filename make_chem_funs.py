@@ -8,7 +8,8 @@ from sympy import sin, cos, Matrix
 from sympy import Symbol
 from sympy import lambdify
 
-ofname = 'chem_funs.py'
+_src_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
+ofname = os.path.join(_src_dir, 'chem_funs.py')
 gibbs_text = vulcan_cfg.gibbs_text
 
 
@@ -805,7 +806,11 @@ if __name__ == "__main__":
     (ni, nr, species) = make_chemdf(re_table, ofname)
     make_Gibbs(re_table, gibbs_text, ofname)
     # import the "ofname" module as chemistry for make_jac to read df
-    chemistry = __import__(ofname[:-3])
+    # ofname is an absolute path to src/chem_funs.py; add src/ to sys.path
+    # so that __import__('chem_funs') can find it
+    if _src_dir not in sys.path:
+        sys.path.insert(0, _src_dir)
+    chemistry = __import__(os.path.basename(ofname)[:-3])  # 'chem_funs'
     make_jac(ni, nr, ofname) # the last function that writes into chem_funs.py
     make_neg_jac(ni, nr, ofname)
     check_conserv()

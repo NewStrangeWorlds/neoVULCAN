@@ -1,0 +1,13 @@
+numpy>=2.2
+scipy>=1.15
+sympy>=1.14
+matplotlib>=3.10
+Pillow>=9.0        # optional: for live plot display; code falls back gracefully if absent
+
+# Phase 2 (JAX chemistry core)
+jax>=0.6.2
+jaxlib>=0.6.2      # install the GPU variant if a CUDA device is available:
+                   # pip install "jax[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
+# Phase 3 (diffrax ODE solver, optional)
+# diffrax>=0.6

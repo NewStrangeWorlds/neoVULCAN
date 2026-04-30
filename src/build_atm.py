@@ -136,7 +136,7 @@ class InitialAbun(object):
             f.write(ost)
         
         try: subprocess.check_call(["./fastchem input/config.input"], shell=True, cwd='fastchem_vulcan/') # check_call instead of call can catch the error 
-        except: print ('\n FastChem cannot run properly. Try compile it by running make under /fastchem_vulcan\n'); raise
+        except subprocess.CalledProcessError: print ('\n FastChem cannot run properly. Try compile it by running make under /fastchem_vulcan\n'); raise
            
     def ini_y(self, data_var, data_atm): 
         # initial mixing ratios of the molecules
@@ -605,7 +605,7 @@ class Atm(object):
                     rho_p = data_atm.rho_p[sp]
                     r_p = data_atm.r_p[sp]
                  
-                except: print (sp + " has not been prescribed size and density!");raise
+                except KeyError: print (sp + " has not been prescribed size and density!"); raise
                  
                 # Calculating the setteling (terminal) velocity
                 gi = 0.5*(data_atm.g + np.roll(data_atm.g,-1))

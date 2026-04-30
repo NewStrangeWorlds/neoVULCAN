@@ -1,17 +1,20 @@
 # Diagnostic tool for output largest rates
 
-import sys
-sys.path.insert(0, '../') # including the upper level of directory for the path of modules
+import sys, os
 
-import numpy as np 
+# Make internal modules in src/ importable
+_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
+if _src not in sys.path:
+    sys.path.insert(0, _src)
+
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.legend as lg
 import vulcan_cfg
 try: from PIL import Image
-except ImportError: 
+except ImportError:
     try: import Image
-    except: vulcan_cfg.use_PIL = False
-import os, sys
+    except ImportError: vulcan_cfg.use_PIL = False
 import pickle
 
 import chem_funs, op

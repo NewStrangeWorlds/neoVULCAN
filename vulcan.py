@@ -48,8 +48,13 @@
 
 # needs to be placed before numpy is imported
 # Limiting the number of threads
-import os
+import os, sys
 os.environ["OMP_NUM_THREADS"] = "1"
+
+# Make internal modules in src/ importable
+_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
+if _src not in sys.path:
+    sys.path.insert(0, _src)
 
 # import public modules
 import numpy as np
@@ -57,7 +62,7 @@ import matplotlib.pyplot as plt
 import matplotlib.legend as lg
 import scipy
 import scipy.optimize as sop
-import time, timeit, sys
+import time, timeit
 import ast
 
 # no arguments or not setting '-n' (no re-making chem_funs.py) option
@@ -71,7 +76,7 @@ else: pass
 # import VULCAN modules
 import store, build_atm, op
 try: import chem_funs
-except: 
+except ImportError:
     raise IOError ('\nThe module "chem_funs" does not exist.\nPlease run prepipe.py first to create the module...')
      
 # import the configuration inputs
