@@ -5,3 +5,5 @@ tests/*
 fastchem_vulcan/obj/*
 fastchem_vulcan/fastchem
 output/*
+test_lhsjac_baseline.pkl
+test_diffdf_baseline.pkl

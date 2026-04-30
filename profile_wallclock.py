@@ -38,8 +38,8 @@ def cfg_overrides(n_steps: int) -> str:
         use_flux_movie  = False
         save_evolution  = False
         out_name        = 'profile_output.vul'
-        ini_mix         = 'const_mix'
-        const_mix       = {{'H2': 0.855, 'He': 0.144, 'H2O': 5e-4, 'PH3': 6e-7}}
+        # ini_mix         = 'const_mix'
+        # const_mix       = {{'H2': 0.855, 'He': 0.144, 'H2O': 5e-4, 'PH3': 6e-7}}
         use_ini_cold_trap = False
     """)
 

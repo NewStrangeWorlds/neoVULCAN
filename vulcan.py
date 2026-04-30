@@ -71,6 +71,8 @@ if len(sys.argv) < 2 or sys.argv[1] != '-n':
     print ('Making chem_funs.py ...')
     python_executable = sys.executable
     os.system(python_executable + ' make_chem_funs.py')
+    print ('Making chemistry_jax.py ...')
+    os.system(python_executable + ' make_chemistry_jax.py')
 else: pass
 
 # import VULCAN modules
