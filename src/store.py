@@ -45,11 +45,11 @@ class Variables(object):
         self.Rindx = {}
         self.a, self.n, self.E, self.a_inf, self.n_inf, self.E_inf,= [{} for i in range(6)]
         self.k_fun, self.k_inf = [{} for i in range(2)] 
-        self.photo_sp = set()  
+        self.photo_sp = []
         self.pho_rate_index, self.n_branch, self.wavelen = {}, {}, {}
         #if vulcan_cfg.use_ion:
         self.ion_rate_index, self.ion_branch, self.ion_wavelen, self.ion_br_ratio = {}, {}, {}, {}
-        self.charge_list, self.ion_sp = [], set() # charge_list: list of species with non-zero charge; ion_sp: species subjected to photoionisation
+        self.charge_list, self.ion_sp = [], [] # charge_list: list of species with non-zero charge; ion_sp: species subjected to photoionisation
         
         self.kinf_fun = {}
         self.k_fun_new = {}

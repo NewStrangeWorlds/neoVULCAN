@@ -34,39 +34,45 @@ class TwoStreamRT:
         self._compute_tau(var, atm)
         self._compute_flux(var, atm)
         self._compute_J(var, atm)
+        
         if vulcan_cfg.use_ion:
             self._compute_Jion(var, atm)
 
     def _compute_tau(self, var, atm):
         var.tau.fill(0)
-        absp_sp = set.union(var.photo_sp, var.ion_sp)
+        absp_sp = sorted(set(var.photo_sp) | set(var.ion_sp))
 
-        for j in range(nz-1, -1, -1):
-            for sp in absp_sp:
-                if sp in vulcan_cfg.T_cross_sp:
-                    var.tau[j] += var.y[j, species.index(sp)] * atm.dz[j] * var.cross_T[sp][j]
-                else:
-                    var.tau[j] += var.y[j, species.index(sp)] * atm.dz[j] * var.cross[sp]
+        nbins = len(var.bins)
+        layer_tau = np.zeros((nz, nbins))
 
-            for sp in vulcan_cfg.scat_sp:
-                var.tau[j] += var.y[j, species.index(sp)] * atm.dz[j] * var.cross_scat[sp]
-            var.tau[j] += var.tau[j+1]
+        for sp in absp_sp:
+            idx = species.index(sp)
+            if sp in vulcan_cfg.T_cross_sp:
+                layer_tau += var.y[:, idx, np.newaxis] * atm.dz[:, np.newaxis] * var.cross_T[sp]
+            else:
+                layer_tau += var.y[:, idx, np.newaxis] * atm.dz[:, np.newaxis] * var.cross[sp]
+
+        for sp in vulcan_cfg.scat_sp:
+            idx = species.index(sp)
+            layer_tau += var.y[:, idx, np.newaxis] * atm.dz[:, np.newaxis] * var.cross_scat[sp]
+
+        # cumulative optical depth from top (tau[nz]=0 boundary stays 0 from fill)
+        var.tau[:-1] = np.cumsum(layer_tau[::-1], axis=0)[::-1]
 
     def _compute_flux(self, var, atm):
         mu_ang = -1. * np.cos(vulcan_cfg.sl_angle)
         edd = vulcan_cfg.edd
         tau = var.tau
 
-        delta_tau = tau - np.roll(tau, -1, axis=0)
-        delta_tau = delta_tau[:-1]
+        delta_tau = tau[:-1] - tau[1:]
 
         nbins = len(var.bins)
         tot_abs  = np.zeros((nz, nbins))
         tot_scat = np.zeros((nz, nbins))
         for sp in var.photo_sp:
-            tot_abs += np.vstack(var.ymix[:, species.index(sp)]) * var.cross[sp]
+            tot_abs += var.ymix[:, species.index(sp), np.newaxis] * var.cross[sp]
         for sp in vulcan_cfg.scat_sp:
-            tot_scat += np.vstack(var.ymix[:, species.index(sp)]) * var.cross_scat[sp]
+            tot_scat += var.ymix[:, species.index(sp), np.newaxis] * var.cross_scat[sp]
 
         w0 = tot_scat / (tot_abs + tot_scat)
         w0 = np.nan_to_num(w0)
@@ -121,11 +127,26 @@ class TwoStreamRT:
             / var.aflux[var.aflux > vulcan_cfg.flux_atol]
         )
 
+    def _spectral_integral(self, flux, cross, idx, dbin1, dbin2):
+        """Trapezoidal integration of flux * cross over two spectral regions.
+
+        cross must have shape (nz, nbins) or (1, nbins) — 1D cross-sections
+        should be passed as cross[np.newaxis] so broadcasting works uniformly.
+        """
+        val  = np.sum(flux[:, :idx] * cross[:, :idx] * dbin1, axis=1)
+        val -= 0.5 * (flux[:, 0]     * cross[:, 0]
+                    + flux[:, idx-1] * cross[:, idx-1]) * dbin1
+        val += np.sum(flux[:, idx:] * cross[:, idx:] * dbin2, axis=1)
+        val -= 0.5 * (flux[:, idx] * cross[:, idx]
+                    + flux[:, -1]  * cross[:, -1]) * dbin2
+        return val
+
     def _compute_J(self, var, atm):
         flux         = var.aflux
         diss_cross   = var.cross_J
         diss_cross_T = var.cross_J_T
         n_branch     = var.n_branch
+        idx          = var.sflux_din12_indx
 
         var.J_sp = {(sp, bn): np.zeros(nz)
                     for sp in var.photo_sp
@@ -133,21 +154,11 @@ class TwoStreamRT:
 
         for sp in var.photo_sp:
             for nbr in range(1, n_branch[sp] + 1):
-                idx = var.sflux_din12_indx
                 if sp in vulcan_cfg.T_cross_sp:
-                    val  = np.sum(flux[:, :idx] * diss_cross_T[(sp, nbr)][:, :idx] * var.dbin1, axis=1)
-                    val -= 0.5 * (flux[:, 0]   * diss_cross_T[(sp, nbr)][:, 0]
-                                + flux[:, idx-1] * diss_cross_T[(sp, nbr)][:, idx-1]) * var.dbin1
-                    val += np.sum(flux[:, idx:] * diss_cross_T[(sp, nbr)][:, idx:] * var.dbin2, axis=1)
-                    val -= 0.5 * (flux[:, idx] * diss_cross_T[(sp, nbr)][:, idx]
-                                + flux[:, -1]  * diss_cross_T[(sp, nbr)][:, -1]) * var.dbin2
+                    cross = diss_cross_T[(sp, nbr)]
                 else:
-                    val  = np.sum(flux[:, :idx] * diss_cross[(sp, nbr)][:idx] * var.dbin1, axis=1)
-                    val -= 0.5 * (flux[:, 0]   * diss_cross[(sp, nbr)][0]
-                                + flux[:, idx-1] * diss_cross[(sp, nbr)][idx-1]) * var.dbin1
-                    val += np.sum(flux[:, idx:] * diss_cross[(sp, nbr)][idx:] * var.dbin2, axis=1)
-                    val -= 0.5 * (flux[:, idx] * diss_cross[(sp, nbr)][idx]
-                                + flux[:, -1]  * diss_cross[(sp, nbr)][-1]) * var.dbin2
+                    cross = diss_cross[(sp, nbr)][np.newaxis]
+                val = self._spectral_integral(flux, cross, idx, var.dbin1, var.dbin2)
 
                 var.J_sp[(sp, nbr)]  = val
                 var.J_sp[(sp, 0)]   += val
@@ -155,9 +166,10 @@ class TwoStreamRT:
                     var.k[var.pho_rate_index[(sp, nbr)]] = val * vulcan_cfg.f_diurnal
 
     def _compute_Jion(self, var, atm):
-        flux     = var.aflux
+        flux      = var.aflux
         ion_cross = var.cross_Jion
         n_branch  = var.ion_branch
+        idx       = var.sflux_din12_indx
 
         var.Jion_sp = {(sp, bn): np.zeros(nz)
                        for sp in var.ion_sp
@@ -165,14 +177,9 @@ class TwoStreamRT:
 
         for sp in var.ion_sp:
             for nbr in range(1, n_branch[sp] + 1):
-                idx = var.sflux_din12_indx
-                val  = np.sum(flux[:, :idx] * ion_cross[(sp, nbr)][:idx] * var.dbin1, axis=1)
-                val -= 0.5 * (flux[:, 0]   * ion_cross[(sp, nbr)][0]
-                            + flux[:, idx-1] * ion_cross[(sp, nbr)][idx-1]) * var.dbin1
-                val += np.sum(flux[:, idx:] * ion_cross[(sp, nbr)][idx:] * var.dbin2, axis=1)
-                val -= 0.5 * (flux[:, idx] * ion_cross[(sp, nbr)][idx]
-                            + flux[:, -1]  * ion_cross[(sp, nbr)][-1]) * var.dbin2
-
+                val = self._spectral_integral(
+                    flux, ion_cross[(sp, nbr)][np.newaxis], idx, var.dbin1, var.dbin2
+                )
                 var.Jion_sp[(sp, nbr)]  = val
                 var.Jion_sp[(sp, 0)]   += val
                 if var.ion_rate_index[(sp, nbr)] not in vulcan_cfg.remove_list:

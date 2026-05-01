@@ -22,7 +22,7 @@ vul_ini = 'output/' # the file to initialize the abundances for ini_mix = 'vulca
 output_dir = 'output/'
 plot_dir = 'plot/'
 movie_dir = 'plot/movie/'
-out_name =  'HD189-PHO-test-noPhoto.vul' # output file name
+out_name =  'HD189-PHO-test-Photo.vul' # output file name
 
 # ====== Setting up the elemental abundance ======
 use_solar = True # True: using the solar abundance from Table 8. K.Lodders 2019; False: using the customized elemental abundance. 
@@ -40,7 +40,7 @@ use_ini_cold_trap = True #True
 const_mix = {'CH4':2.7761E-4*2, 'O2':4.807e-4, 'He':0.09691, 'N2':8.1853E-5, 'H2':1. -2.7761E-4*2*4/2} 
 
 # ====== Setting up photochemistry ======
-use_photo = 0
+use_photo = True
 # astronomy input
 r_star = 0.805 # stellar radius in solar radius
 Rp = 1.138*7.1492E9 # Planetary radius (cm) (for computing gravity)

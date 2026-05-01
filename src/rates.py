@@ -237,8 +237,8 @@ class ReadRate(object):
         var.k_fun = k_fun
         var.kinf_fun = kinf_fun
         
-        var.photo_sp = set(photo_sp)
-        if vulcan_cfg.use_ion: var.ion_sp = set(ion_sp)
+        var.photo_sp = sorted(set(photo_sp))
+        if vulcan_cfg.use_ion: var.ion_sp = sorted(set(ion_sp))
         
         return var
     

@@ -6234,11 +6234,11 @@ _jac_jit    = jax.jit(_jac_vmap)
 
 
 # ---------------------------------------------------------------------------
-# Helper (used by JAX fallback path)
+# Helper (used by JAX path)
 # ---------------------------------------------------------------------------
 
 def k_dict_to_array(k_dict):
-    """Convert k dict {{1..nr: array(nz)}} to a (nr+1, nz) numpy array."""
+    """Convert k dict {1..nr: array(nz)} to a (nr+1, nz) numpy array."""
     nr  = max(k_dict.keys())
     nz  = len(next(iter(k_dict.values())))
     arr = np.zeros((nr + 1, nz), dtype=np.float64)
