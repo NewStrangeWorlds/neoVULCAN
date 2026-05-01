@@ -80,7 +80,7 @@ class InitialAbun(object):
         # depending on including ion or not (whether there is e- in the fastchem elemental abundance dat)
         tmp_str = ""
         solar_ele = 'fastchem_vulcan/input/solar_element_abundances.dat'
-        if vulcan_cfg.use_ion == True:
+        if vulcan_cfg.use_ion:
             copyfile('fastchem_vulcan/input/parameters_ion.dat', 'fastchem_vulcan/input/parameters.dat')
         else:
             copyfile('fastchem_vulcan/input/parameters_wo_ion.dat', 'fastchem_vulcan/input/parameters.dat')
@@ -92,7 +92,7 @@ class InitialAbun(object):
             
             fc_list = ['C', 'N', 'O', 'S', 'P', 'Si', 'Ti','V','Cl','K','Na','Mg','F','Ca','Fe']
             
-            if vulcan_cfg.use_solar == True: 
+            if vulcan_cfg.use_solar: 
                 new_str = f.read() # read in as a string
                 print ("Initializing with the default solar abundance.")
                 
@@ -162,7 +162,7 @@ class InitialAbun(object):
                 
                 else: print (sp + ' not included in fastchem.')
                 
-                if vulcan_cfg.use_ion == True:
+                if vulcan_cfg.use_ion:
                     if compo[compo_row.index(sp)]['e'] != 0: charge_list.append(sp)
             
             # remove the fc output
@@ -180,17 +180,16 @@ class InitialAbun(object):
                     y_ini[:,species.index(sp)] = vul_data['variable']['y'][:,vul_data['variable']['species'].index(sp)]
                 else: print (sp + " not included in the prvious run.") 
             
-            #if vulcan_cfg.use_ion == True: charge_list = vul_data['variable']['charge_list']
-            if vulcan_cfg.use_ion == True:
+            #if vulcan_cfg.use_ion: charge_list = vul_data['variable']['charge_list']
+            if vulcan_cfg.use_ion:
                 for sp in species: 
                     if compo[compo_row.index(sp)]['e'] != 0: charge_list.append(sp)
         
         elif vulcan_cfg.ini_mix  == 'table':
             table = np.genfromtxt(vulcan_cfg.vul_ini, names=True, dtype=None, skip_header=1) 
-            if not len(data_atm.pco) == len(table['Pressure']): 
-                print ("Warning! The initial profile has different layers than the current setting...")
-                raise
-            for sp in species:  
+            if len(data_atm.pco) != len(table['Pressure']):
+                raise IOError("The initial profile has different layers than the current setting.")
+            for sp in species:
                 data_var.y[:,species.index(sp)] = data_atm.n_0 * table[sp]
 
     
@@ -198,7 +197,7 @@ class InitialAbun(object):
             print ("Initializing with constant (well-mixed): " + str(vulcan_cfg.const_mix))
             for sp in vulcan_cfg.const_mix.keys():
                 y_ini[:,species.index(sp)] = gas_tot* vulcan_cfg.const_mix[sp] # this also changes data_var.y
-            if vulcan_cfg.use_ion == True:
+            if vulcan_cfg.use_ion:
                 for sp in species: 
                     if compo[compo_row.index(sp)]['e'] != 0: charge_list.append(sp)
                 
@@ -215,7 +214,7 @@ class InitialAbun(object):
                 else:
                     raise IOError ('\nInitial mixing ratios unknown. Check the setting in vulcan_cfg.py.')
         
-        if vulcan_cfg.use_condense == True:
+        if vulcan_cfg.use_condense:
             for sp in vulcan_cfg.condense_sp:
                 data_atm.sat_mix[sp] = data_atm.sat_p[sp]/data_atm.pco
                 
@@ -224,7 +223,7 @@ class InitialAbun(object):
                 
                 if sp == 'H2O': # some special treatment for H2O oceans
                     data_atm.sat_mix[sp] *= vulcan_cfg.humidity
-                    if vulcan_cfg.use_sat_surfaceH2O == True: # 2023 added for eccentric Earth
+                    if vulcan_cfg.use_sat_surfaceH2O: # 2023 added for eccentric Earth
                          vulcan_cfg.use_fix_sp_bot[sp] = data_atm.sat_mix[sp][0] 
                          print ("\nThe fixed surface water is now reset by condensation and humidity to " + str(vulcan_cfg.use_fix_sp_bot[sp]))
                          
@@ -232,12 +231,12 @@ class InitialAbun(object):
                          data_var.ymix[:,species.index('H2O')] = data_atm.sat_mix[sp][0]
                          data_var.y[:,species.index('H2O')] = data_var.ymix[:,species.index('H2O')]*data_atm.n_0
                          
-                if vulcan_cfg.use_ini_cold_trap == True:
+                if vulcan_cfg.use_ini_cold_trap:
                     
                     if  vulcan_cfg.ini_mix != 'table': # and vulcan_cfg.ini_mix != 'vulcan_ini'
                         
                         # the level where condensation starts 
-                        if vulcan_cfg.use_sat_surfaceH2O == True: # shami added 2024
+                        if vulcan_cfg.use_sat_surfaceH2O: # shami added 2024
                             conden_bot = 0
                         else:    
                             conden_bot = np.argmax( data_atm.n_0*data_atm.sat_mix[sp] <= data_var.y[:,species.index(sp)] )
@@ -263,7 +262,7 @@ class InitialAbun(object):
         # re-normalisation 
         # TEST
         # Excluding the non-gaseous species
-        if vulcan_cfg.use_condense == True:
+        if vulcan_cfg.use_condense:
             exc_conden = [_ for _ in range(ni) if species[_] not in vulcan_cfg.non_gas_sp]
             ysum = np.sum(y_ini[:,exc_conden], axis=1).reshape((-1,1))
         else:
@@ -272,7 +271,7 @@ class InitialAbun(object):
         data_var.y_ini = np.copy(y_ini)
         data_var.ymix = y_ini/ysum
         
-        if vulcan_cfg.use_ion == True: 
+        if vulcan_cfg.use_ion: 
             # if the charge_list is empty (no species with nonzero charges include)
             if not charge_list: 
                 print ( "vulcan_cfg.use_ion = True but the network with ions is not supplied.\n" )
@@ -377,7 +376,7 @@ class Atm(object):
                 data_atm.Tco = PTK_fun['pT'](data_atm.pco)
             
             
-            if self.use_Kzz == True and self.Kzz_prof == 'file': 
+            if self.use_Kzz and self.Kzz_prof == 'file': 
                 
                 PTK_fun['pK'] = interpolate.interp1d(p_file, Kzz_file, assume_sorted = False, bounds_error=False, fill_value=(Kzz_file[np.argmin(p_file)], Kzz_file[np.argmax(p_file)]) )
                 # store Kzz in data_atm
@@ -400,10 +399,9 @@ class Atm(object):
         elif self.type == 'table':
             print ("Initializing PT from the prvious run " + vulcan_cfg.vul_ini)
             table = np.genfromtxt(vulcan_cfg.vul_ini, names=True, dtype=None, skip_header=1) 
-            if not len(data_atm.pco) == len(table['Pressure']): 
-                print ("Warning! The initial profile has different layers than the current setting...")
-                raise    
-            data_atm.pco = table['Pressure']     
+            if len(data_atm.pco) != len(table['Pressure']):
+                raise IOError("The initial profile has different layers than the current setting.")
+            data_atm.pco = table['Pressure']
             data_atm.Tco = table['Temp']
               
         else: raise IOError ('\n"atm_type" cannot be recongized.\nPlease trassign it in vulcan_cfg.')
@@ -430,10 +428,10 @@ class Atm(object):
         
         
                         
-        if self.use_Kzz == False:
+        if not self.use_Kzz:
             # store Kzz in data_atm
             data_atm.Kzz = np.zeros(nz-1)
-        if self.use_vz == False: 
+        if not self.use_vz:
             data_atm.vz = np.zeros(nz-1)   
         
         # TEST 
@@ -530,19 +528,16 @@ class Atm(object):
         Tco, pico = data_atm.Tco.copy(), data_atm.pico.copy()
         Hp = data_atm.Hp
         
-        if vulcan_cfg.rocky == False and self.P_b >= 1e6: # if the lower BC greater than 1bar for gas giants
+        if not vulcan_cfg.rocky and self.P_b >= 1e6: # if the lower BC greater than 1bar for gas giants
             # Find the index of pico closest to 1bar
             pref_indx = min( range(nz+1), key=lambda i: abs(np.log10(pico[i])-6.))
         else: pref_indx = 0
         # print ("g_s starts from " + str(pico[pref_indx]/1e6) + " bar")
         
-        # updating and storing mu
         data_atm = self.mean_mass(data_var, data_atm, ni)
         mu = data_atm.mu
         gs = self.gs
         gz = data_atm.g
-        # updating and storing mu
-        data_atm = self.mean_mass(data_var, data_atm, ni)
         
         for i in range(pref_indx,nz):
             if i == pref_indx:
@@ -555,7 +550,7 @@ class Atm(object):
             zco[i+1] = zco[i] + dz[i] # zco is set zero at 1bar for gas giants
 
         # for pref_indx != zero 
-        if not pref_indx == 0:
+        if pref_indx != 0:
             for i in range(pref_indx-1,-1,-1):
                 gz[i] = gs * (vulcan_cfg.Rp/(vulcan_cfg.Rp + zco[i+1]))**2
                 Hp[i] = kb*Tco[i]/(mu[i]/Navo*gz[i])
@@ -569,7 +564,7 @@ class Atm(object):
         # for the j grid, dzi[j] from the grid above and dz[j-1] from the grid below
         
         # for the molecular diffsuion
-        if vulcan_cfg.use_moldiff == True:
+        if vulcan_cfg.use_moldiff:
             Ti = 0.5*(Tco + np.roll(Tco,-1))
             data_atm.Ti = Ti[:-1]
             Hpi = 0.5*(Hp + np.roll(Hp,-1))
@@ -583,7 +578,7 @@ class Atm(object):
         data_atm.g, data_atm.gs = gz, gs 
         data_atm.pref_indx = pref_indx
                     
-        if self.use_settling == True:
+        if self.use_settling:
         # TESTing settling velocity
         # based on L. D. Cloutman: A Database of Selected Transport Coefficients for Combustion Studies (Table 1.)
             if vulcan_cfg.atm_base == 'N2':
@@ -613,7 +608,7 @@ class Atm(object):
                 data_atm.vs[:,species.index(sp)] = -1. *(2./9*rho_p * r_p**2 * gi / dmu[1:])
         
         # plot T-P profile
-        if vulcan_cfg.plot_TP == True: output.plot_TP(data_atm)
+        if vulcan_cfg.plot_TP: output.plot_TP(data_atm)
         # print warning when T exceeds the valid range of Gibbs free energy (NASA polynomials)
         if np.any(np.logical_or(data_atm.Tco < 200, data_atm.Tco > 6000)): print ('Temperatures exceed the valid range of Gibbs free energy.\n')
             
@@ -674,7 +669,7 @@ class Atm(object):
         Tco_i = np.delete((Tco + np.roll(Tco,1))*0.5, 0)
         n0_i = np.delete((n_0 + np.roll(n_0,1))*0.5, 0)
         
-        if vulcan_cfg.use_moldiff == False:
+        if not vulcan_cfg.use_moldiff:
             for i in range(len(species)):
                 # this is required even without molecular weight
                 atm.ms[i] = compo[compo_row.index(species[i])][-1]
@@ -735,11 +730,11 @@ class Atm(object):
         
         # contruct the advective component of molcular diffsion # added 2025
         delta_T = np.roll(Tco,-1)-Tco
-        delta_T[0] = delta_T[1]; np.insert(delta_T, 0, delta_T[0])
+        delta_T[0] = delta_T[1]
         
-        if vulcan_cfg.use_vm_mol == True:
+        if vulcan_cfg.use_vm_mol:
             atm.vm = - atm.Dzz_cen * ( atm.ms[np.newaxis,:]*atm.g[:,np.newaxis]/(Navo*kb*Tco[:,np.newaxis]) - 1./atm.Hp[:,np.newaxis] +  atm.alpha/Tco[:,np.newaxis]*(delta_T[:,np.newaxis])/atm.dz[:,np.newaxis]  )
-            if vulcan_cfg.use_condense == True:
+            if vulcan_cfg.use_condense:
                 non_gas_indices = [species.index(sp) for sp in vulcan_cfg.non_gas_sp]
                 atm.vm[:,non_gas_indices] = 0
         # contruct the advective component of molcular diffsion
@@ -750,7 +745,7 @@ class Atm(object):
         Reading-in the boundary conditions of constant flux (cm^-2 s^-1) at top/bottom
         '''
         # read in the const top BC
-        if vulcan_cfg.use_topflux == True: 
+        if vulcan_cfg.use_topflux:
             print ("Using the prescribed constant top flux.")
             with open (vulcan_cfg.top_BC_flux_file) as f:
                 for line in f.readlines():
@@ -759,7 +754,7 @@ class Atm(object):
                         atm.top_flux[species.index(li[0])] = li[1]
         
         # read in the const bottom BC
-        if vulcan_cfg.use_botflux == True: 
+        if vulcan_cfg.use_botflux:
             print ("Using the prescribed constant bottom flux.")
             with open (vulcan_cfg.bot_BC_flux_file) as f:
                 for line in f.readlines():
