@@ -15,6 +15,7 @@ from integration         import Integration
 from ode_solver          import ODESolver
 from ros2                import Ros2
 from radiative_transfer  import TwoStreamRT, RadiativeTransfer
+from condensation        import Condensation
 from output              import Output
 
 # Re-export the shared module-level names that external code may reference
