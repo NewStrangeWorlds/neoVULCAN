@@ -19,12 +19,9 @@ from condensation        import Condensation
 from output              import Output
 
 # Re-export the shared module-level names that external code may reference
-from rates import (
-    species, ni, nr, nz,
-    chemdf, neg_achemjac,
-    compo, compo_row,
-    kb, Navo, hc, ag0,
-    vulcan_cfg,
-    chem_funs,
-    build_atm,
-)
+from rates import species, ni, nr, nz, compo, compo_row
+from chemistry_jax import chemdf, neg_achemjac
+from phy_const import kb, Navo, hc, ag0
+import vulcan_cfg
+import chem_funs
+import build_atm

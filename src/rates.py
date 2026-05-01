@@ -1,25 +1,13 @@
 import numpy as np
-import scipy
-from scipy import sparse
 from scipy import interpolate
-import matplotlib.pyplot as plt
-import matplotlib.legend as lg
-import time, os, pickle
-import csv, ast
+import os
 
 import vulcan_cfg
-try: from PIL import Image
-except ImportError:
-    try: import Image
-    except ImportError: vulcan_cfg.use_PIL = False
-
 import build_atm
 import chem_funs
 from chem_funs import ni, nr
-from phy_const import kb, Navo, hc, ag0
 from vulcan_cfg import nz
 
-from chemistry_jax import chemdf, neg_achemjac
 compo = build_atm.compo
 compo_row = build_atm.compo_row
 species = chem_funs.spec_list
@@ -54,7 +42,6 @@ class ReadRate(object):
         
         special_re = False
         conden_re = False
-        recomb_re = False
         photo_re = False
         ion_re = False
         #end_re = False
@@ -90,26 +77,23 @@ class ReadRate(object):
                 elif line.startswith("# radiative"):
                     re_tri = False
                     re_tri_k0 = False
-                    special_re = False 
+                    special_re = False
                     conden_re = False
-                    recomb_re = True
                     var.recomb_indx = i
                     
                 elif line.startswith("# photo"):
                     re_tri = False
                     re_tri_k0 = False
-                    special_re = False # turn off reading in the special form
+                    special_re = False
                     conden_re = False
-                    recomb_re = False
                     photo_re = True
-                    var.photo_indx = i 
-                     
+                    var.photo_indx = i
+
                 elif line.startswith("# ionisation"):
                     re_tri = False
                     re_tri_k0 = False
-                    special_re = False # turn off reading in the special form
+                    special_re = False
                     conden_re = False
-                    recomb_re = False
                     photo_re = False
                     ion_re = True
                     var.ion_indx = i
@@ -120,7 +104,7 @@ class ReadRate(object):
                       
                 # skip common lines and blank lines
                 # ========================================================================================
-                if not line.startswith("#") and line.strip() and special_re == False and conden_re == False and photo_re == False and ion_re == False: # if not starts
+                if not line.startswith("#") and line.strip() and not special_re and not conden_re and not photo_re and not ion_re: # if not starts
                     
                     Rf[i] = line.partition('[')[-1].rpartition(']')[0].strip()
                     li = line.partition(']')[-1].strip()
@@ -131,24 +115,21 @@ class ReadRate(object):
                     E[i] = float(columns[2])
                 
                     # switching to trimolecular reactions (len(columns) > 3 for those with high-P limit rates)   
-                    if re_tri == True and re_tri_k0 == False:
+                    if re_tri and not re_tri_k0:
                         a_inf[i] = float(columns[3])
                         n_inf[i] = float(columns[4])
                         E_inf[i] = float(columns[5])
                         list_tri.append(i) 
                     
-                    if columns[-1].strip() == 'He': re_He = i
-                    elif columns[-1].strip() == 'ex1': re_CH3OH = i
-                
                     # Note: make the defaut i=i
                     k_fun[i] = lambda temp, mm, i=i: a[i] *temp**n[i] * np.exp(-E[i]/temp)
                 
                 
-                    if re_tri == False:
+                    if not re_tri:
                         k[i] = k_fun[i](Tco, M)
                     
                     # for 3-body reactions, also calculating k_inf
-                    elif re_tri == True and len(columns)>=6:
+                    elif re_tri and len(columns) >= 6:
         
         
                         kinf_fun[i] = lambda temp, i=i: a_inf[i] *temp**n_inf[i] * np.exp(-E_inf[i]/temp)
@@ -167,7 +148,7 @@ class ReadRate(object):
                     i += 2
                     # end if not 
                  # ========================================================================================    
-                elif special_re == True and line.strip() and not line.startswith("#"):
+                elif special_re and line.strip() and not line.startswith("#"):
 
                     Rindx[i] = int(line.partition('[')[0].strip())
                     Rf[i] = line.partition('[')[-1].rpartition(']')[0].strip()
@@ -197,7 +178,7 @@ class ReadRate(object):
 
                 
                 # Testing condensation
-                elif conden_re == True and line.strip() and not line.startswith("#"):
+                elif conden_re and line.strip() and not line.startswith("#"):
                     Rindx[i] = int(line.partition('[')[0].strip())
                     Rf[i] = line.partition('[')[-1].rpartition(']')[0].strip()
                     
@@ -208,7 +189,7 @@ class ReadRate(object):
                     i += 2
                     
                 # setting photo dissociation reactions to zeros
-                elif photo_re == True and line.strip() and not line.startswith("#"):
+                elif photo_re and line.strip() and not line.startswith("#"):
                     
                     k[i] = np.zeros(nz)
                     Rf[i] = line.partition('[')[-1].rpartition(']')[0].strip()
@@ -228,7 +209,7 @@ class ReadRate(object):
                     i += 2
                 
                 # setting photo ionization reactions to zeros
-                elif ion_re == True and line.strip() and not line.startswith("#"): # and end_re == False
+                elif ion_re and line.strip() and not line.startswith("#"): # and end_re == False
                     
                     k[i] = np.zeros(nz)
                     Rf[i] = line.partition('[')[-1].rpartition(']')[0].strip()
@@ -257,7 +238,7 @@ class ReadRate(object):
         var.kinf_fun = kinf_fun
         
         var.photo_sp = set(photo_sp)
-        if vulcan_cfg.use_ion == True: var.ion_sp = set(ion_sp)
+        if vulcan_cfg.use_ion: var.ion_sp = set(ion_sp)
         
         return var
     
@@ -319,157 +300,6 @@ class ReadRate(object):
 
         return var
             
-    # def read_rateFun(self, var):
-    #     '''
-    #     Reading in the reaction network and returning only the functions (k_fun)
-    #     Used for pathway analysis
-    #     '''
-    #
-    #     Rf, Rindx, a, n, E, a_inf, n_inf, E_inf, k_fun, kinf_fun, k_fun_new = \
-    #     var.Rf, var.Rindx, var.a, var.n, var.E, var.a_inf, var.n_inf, var.E_inf, var.k_fun, var.kinf_fun,  var.k_fun_new
-    #
-    #     i = self.i
-    #     re_tri, re_tri_k0 = self.re_tri, self.re_tri_k0
-    #     list_tri = self.list_tri
-    #
-    #     special_re = False
-    #     conden_re = False
-    #     photo_re = False
-    #     end_re = False
-    #     br_read  = False
-    #
-    #     photo_sp = []
-    #
-    #     with open(vulcan_cfg.network) as f:
-    #         for line in f.readlines():
-    #
-    #             # switch to 3-body and dissociation reations
-    #             if line.startswith("# 3-body"):
-    #                 re_tri = True
-    #
-    #             if line.startswith("# 3-body reactions without high-pressure rates"):
-    #                 re_tri_k0 = True
-    #
-    #             elif line.startswith("# special"):
-    #                 special_re = True # switch to reactions with special forms (hard coded)
-    #
-    #             elif line.startswith("# photo"):
-    #                 special_re = False # turn off reading in the special form
-    #                 photo_re = True
-    #                 var.photo_indx = i
-    #
-    #             elif line.startswith("# re_end"):
-    #                 end_re = True
-    #
-    #             elif line.startswith("# braching info start"):
-    #                 br_read = True
-    #
-    #             elif line.startswith("# braching info end"):
-    #                 br_read = False
-    #
-    #             # skip common lines and blank lines
-    #             # ========================================================================================
-    #             if not line.startswith("#") and line.strip() and special_re == False and photo_re == False and end_re == False: # if not starts
-    #
-    #                 Rf[i] = line.partition('[')[-1].rpartition(']')[0].strip()
-    #                 li = line.partition(']')[-1].strip()
-    #                 columns = li.split()
-    #                 Rindx[i] = int(line.partition('[')[0].strip())
-    #
-    #                 a[i] = float(columns[0])
-    #                 n[i] = float(columns[1])
-    #                 E[i] = float(columns[2])
-    #
-    #                 # switching to trimolecular reactions (len(columns) > 3 for those with high-P limit rates)
-    #                 if re_tri == True and re_tri_k0 == False:
-    #                     a_inf[i] = float(columns[3])
-    #                     n_inf[i] = float(columns[4])
-    #                     E_inf[i] = float(columns[5])
-    #                     list_tri.append(i)
-    #
-    #                 if columns[-1].strip() == 'He': re_He = i
-    #                 elif columns[-1].strip() == 'ex1': re_CH3OH = i
-    #
-    #                 # Note: make the defaut i=i
-    #                 k_fun[i] = lambda temp, mm, i=i: a[i] *temp**n[i] * np.exp(-E[i]/temp)
-    #
-    #
-    #                 # for 3-body reactions, also calculating k_inf
-    #                 if re_tri == True and len(columns)>=6:
-    #
-    #                     kinf_fun[i] = lambda temp, i=i: a_inf[i] *temp**n_inf[i] * np.exp(-E_inf[i]/temp)
-    #                     k_fun_new[i] = lambda temp, mm, i=i: (a[i] *temp**n[i] * np.exp(-E[i]/temp))/(1 + (a[i] *temp**n[i] * np.exp(-E[i]/temp))*mm/(a_inf[i] *temp**n_inf[i] * np.exp(-E_inf[i]/temp)) )
-    #
-    #                 i += 2
-    #                 # end if not
-    #              # ========================================================================================
-    #             elif special_re == True and line.strip() and not line.startswith("#") and end_re == False:
-    #
-    #                 Rindx[i] = int(line.partition('[')[0].strip())
-    #                 Rf[i] = line.partition('[')[-1].rpartition(']')[0].strip()
-    #
-    #                 if Rf[i] == 'OH + CH3 + M -> CH3OH + M':
-    #                     print ('Using special form for the reaction: ' + Rf[i])
-    #                     k_fun[i] = lambda temp, mm, i=i: 1.932E3 *temp**-9.88 *np.exp(-7544./temp) + 5.109E-11*temp**-6.25 *np.exp(-1433./temp)
-    #                     kinf_fun[i] = lambda temp, mm, i=i: 1.031E-10 * temp**-0.018 *np.exp(16.74/temp)
-    #                     k_fun_new[i] = lambda temp, mm, i=i: (1.932E3 *temp**-9.88 *np.exp(-7544./temp) + 5.109E-11*temp**-6.25 *np.exp(-1433./temp))/\
-    #                     (1 + (1.932E3 *temp**-9.88 *np.exp(-7544./temp) + 5.109E-11*temp**-6.25 *np.exp(-1433./temp)) * mm / (1.031E-10 * temp**-0.018 *np.exp(16.74/temp)) )
-    #
-    #                 i += 2
-    #
-    #             # setting photo dissociation reactions to zeros
-    #             elif photo_re == True and line.strip() and not line.startswith("#") and end_re == False:
-    #
-    #                 #k[i] = np.zeros(nz)
-    #                 Rf[i] = line.partition('[')[-1].rpartition(']')[0].strip()
-    #
-    #                 # adding the photo species
-    #                 photo_sp.append(Rf[i].split()[0])
-    #
-    #                 li = line.partition(']')[-1].strip()
-    #                 columns = li.split()
-    #                 Rindx[i] = int(line.partition('[')[0].strip())
-    #                 # columns[0]: the species being dissocited; branch index: columns[1]
-    #                 pho_rate_index[(columns[0],int(columns[1]))] = Rindx[i]
-    #
-    #                 # store the number of branches
-    #                 var.n_branch[columns[0]] = int(columns[1])
-    #
-    #                 i += 2
-    #
-    #             # end_re == True
-    #             elif br_read == True and not line.startswith("#"):
-    #                 # read in the quantum yields of photolysis reactions
-    #                 sp_list = line.partition(':')
-    #                 sp = sp_list[0]
-    #                 lists = sp_list[-1]
-    #                 wavelen_yield = lists.partition(';')
-    #                 # wavelen_yield is tuple of string in wavelength seitch, ;, Q yield e.g. ('[165.]', ';', '[(1.,0),(0,1.)]')
-    #                 var.wavelen[sp] = ast.literal_eval(wavelen_yield[0].strip())
-    #                 var.br_ratio[sp] = ast.literal_eval(wavelen_yield[-1].strip())
-    #
-    #     k_fun.update(k_fun_new)
-    #
-    #     # store k_fun into data_var
-    #     var.k_fun = k_fun
-    #     var.kinf_fun = kinf_fun
-    #
-    #     return var
-    #
-    # def rev_rateFun(self, var):
-    #     '''
-    #     Revarsing only the functions of forward rates (k_fun) and the T, P values (at the examined level)
-    #     Used for pathway analysis
-    #     '''
-    #
-    #     rev_list = range(2,nr+1,2)
-    #
-    #     # reversing rates and storing into data_var
-    #     for i in rev_list:
-    #         var.k_fun[i] = lambda temp, mm, i=i: var.k_fun[i-1](temp, mm)/chem_funs.Gibbs(i-1,temp)
-    #
-    #     return var
-    
     def make_bins_read_cross(self,var,atm):
         '''
         determining the bin range and only use the min and max wavelength that the molecules absorb
@@ -497,7 +327,7 @@ class ReadRate(object):
         # reading in cross sections into dictionaries
         for n, sp in enumerate(absp_sp):   
             
-            if vulcan_cfg.use_ion == True:
+            if vulcan_cfg.use_ion:
                 try: cross_raw[sp] = np.genfromtxt(vulcan_cfg.cross_folder+sp+'/'+sp+'_cross.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso','ion'])
                 except Exception: print('\nMissing the cross section from ' + sp); raise
                 if sp in ion_sp:
@@ -523,7 +353,7 @@ class ReadRate(object):
                         T_list.append(int(temp) )
                         var.cross_T_sp_list[sp] = T_list
                 for tt in T_list:
-                    if vulcan_cfg.use_ion == True: # usually the T-dependent cross sections are only measured in the photodissociation-relavent wavelengths so cross_tot = cross_diss
+                    if vulcan_cfg.use_ion: # usually the T-dependent cross sections are only measured in the photodissociation-relavent wavelengths so cross_tot = cross_diss
                         cross_T_raw[(sp, tt)] = np.genfromtxt(vulcan_cfg.cross_folder+sp+'/'+sp+'_cross_'+str(tt)+'K.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso','ion'])
                     else: cross_T_raw[(sp, tt)] = np.genfromtxt(vulcan_cfg.cross_folder+sp+'/'+sp+'_cross_'+str(tt)+'K.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso'])
                 # room-T cross section
@@ -593,7 +423,7 @@ class ReadRate(object):
         var.cross_J_T = dict([((sp,i), np.zeros((nz, var.nbin) )) for sp in vulcan_cfg.T_cross_sp for i in range(1,var.n_branch[sp]+1) ])
         
         #read cross of ionisation
-        if vulcan_cfg.use_ion == True: var.cross_Jion = dict([((sp,i), np.zeros(var.nbin)) for sp in ion_sp for i in range(1,var.ion_branch[sp]+1)])
+        if vulcan_cfg.use_ion: var.cross_Jion = dict([((sp,i), np.zeros(var.nbin)) for sp in ion_sp for i in range(1,var.ion_branch[sp]+1)])
         
         for sp in photo_sp: # photodissociation only; photoionization takes a separate branch ratio file
             # for values outside the boundary => fill_value = 0
@@ -658,7 +488,7 @@ class ReadRate(object):
                                 if np.isinf(log_highT ): log_highT = -100.
                                 
                                 inter_T = interpolate.interp1d([Tlow,Thigh], [log_lowT,log_highT], axis=0) # at wavelength ld, interpolating between Tlow and Thigh in log10
-                                if inter_T(Tz) == -100: var.cross_T[sp][lev, n] == 0.
+                                if inter_T(Tz) == -100: var.cross_T[sp][lev, n] = 0.
                                 else: var.cross_T[sp][lev, n] = 10**(inter_T(Tz))
                                 
                                 # update: inerpolation in log10 for cross sections and linearly between Tlow and Thigh 
@@ -725,7 +555,7 @@ class ReadRate(object):
                                         var.cross_J_T[(sp,i)][lev, n] = inter_cross_J_highT(ld) * inter_ratio[i](ld) # same inter_ratio[i](ld) as the standard one above
                     
                                             
-        if vulcan_cfg.use_ion == True: 
+        if vulcan_cfg.use_ion: 
             for sp in ion_sp:
                 if sp not in photo_sp: 
                     inter_cross = interpolate.interp1d(cross_raw[sp]['lambda'], cross_raw[sp]['cross'], bounds_error=False, fill_value=0)
@@ -744,7 +574,7 @@ class ReadRate(object):
                     if sp not in photo_sp: var.cross[sp][n] = inter_cross(ld)                
                     for i in range(1,var.ion_branch[sp]+1): 
                         var.cross_Jion[(sp,i)][n] = inter_cross_Jion(ld) * ion_inter_ratio[i](ld)
-        # end of if vulcan_cfg.use_ion == True: 
+        # end of if vulcan_cfg.use_ion: 
                 
         # reading in cross sections of Rayleigh Scattering
         for sp in vulcan_cfg.scat_sp:
