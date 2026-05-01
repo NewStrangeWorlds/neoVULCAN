@@ -76,10 +76,16 @@ if len(sys.argv) < 2 or sys.argv[1] != '-n':
 else: pass
 
 # import VULCAN modules
-import store, build_atm, op
+import store, build_atm
 try: import chem_funs
 except ImportError:
     raise IOError ('\nThe module "chem_funs" does not exist.\nPlease run prepipe.py first to create the module...')
+
+from rates import ReadRate
+from integration import Integration
+from ros2 import Ros2
+from ode_solver import ODESolver
+from output import Output
      
 # import the configuration inputs
 import vulcan_cfg
@@ -106,7 +112,7 @@ data_para.start_time = time.time()
 make_atm = build_atm.Atm()
 
 # for plotting and printing
-output = op.Output()
+output = Output()
 
 # saving the config file
 output.save_cfg(dname)
@@ -121,7 +127,7 @@ data_atm =  make_atm.load_TPK(data_atm)
 if vulcan_cfg.use_condense == True: make_atm.sp_sat(data_atm)
 
 # for reading rates
-rate = op.ReadRate()
+rate = ReadRate()
 
 # read-in network and calculating forward rates
 data_var = rate.read_rate(data_var, data_atm)
@@ -155,9 +161,9 @@ make_atm.BC_flux(data_atm)
 # ============== Execute VULCAN  ==============
 # time-steping in the while loop until conv() returns True or count > count_max 
 
-# setting the numerical solver to the desinated one in vulcan_cfg
-solver_str = vulcan_cfg.ode_solver
-solver = getattr(op, solver_str)()
+# setting the numerical solver to the designated one in vulcan_cfg
+_solvers = {'Ros2': Ros2, 'ODESolver': ODESolver}
+solver = _solvers[vulcan_cfg.ode_solver]()
 
 # Setting up for photo chemistry
 if vulcan_cfg.use_photo == True:
@@ -167,12 +173,12 @@ if vulcan_cfg.use_photo == True:
     
     # computing the optical depth (tau), flux, and the photolisys rates (J) for the first time
     solver.rt(data_var, data_atm)
-    # they will be updated in op.Integration by the assigned frequence
+    # they will be updated in Integration by the assigned frequency
     
     # removing rates
     data_var = rate.remove_rate(data_var)
 
-integ = op.Integration(solver, output)
+integ = Integration(solver, output)
 # Assgining the specific solver corresponding to different B.C.s
 solver.naming_solver(data_para)
  

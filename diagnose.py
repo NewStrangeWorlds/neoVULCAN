@@ -17,15 +17,17 @@ except ImportError:
     except ImportError: vulcan_cfg.use_PIL = False
 import pickle
 
-import chem_funs, op
+import chem_funs
 from chem_funs import nr, re_wM_dict, re_dict
+from ros2 import Ros2
+from ode_solver import ODESolver
 
 
 vul_data = 'output/.vul'
 
-# setting the numerical solver to the desinated one in vulcan_cfg
-solver_str = vulcan_cfg.ode_solver
-solver = getattr(op, solver_str)()
+# setting the numerical solver to the designated one in vulcan_cfg
+_solvers = {'Ros2': Ros2, 'ODESolver': ODESolver}
+solver = _solvers[vulcan_cfg.ode_solver]()
 
 # the number of fastest reactions to print out
 top_num = 100
