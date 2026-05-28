@@ -57,12 +57,12 @@ class Variables(object):
         # if photochemistry is off, the value remains 0 for checking convergence
         self.aflux_change = 0.
         
-        # The temporary wavelegth range (nm) given by the stellar flux
-        # It will later be adjusted in make_bins_read_cross in op.py considering all molecules the absorbe photons, taking the smaller range of the two 
+        # The temporary wavelength range (nm) given by the stellar flux.
+        # It will later be adjusted in make_bins_read_cross in rates.py considering all molecules that absorb photons, taking the smaller range of the two.
         sflux_data = np.genfromtxt(vulcan_cfg.sflux_file, dtype=float, skip_header=1, names = ['lambda', 'flux'])
-        
-        # setting the spectral bins based on the stellar spectrum, bun not shorter than 2nm ann not longer than 700 nm. This will further be ajusted in op.py while reading cross sections
-        self.def_bin_min = max(sflux_data['lambda'][0],2.)  
+
+        # setting the spectral bins based on the stellar spectrum, not shorter than 2nm and not longer than 700 nm. This will further be adjusted in rates.py while reading cross sections
+        self.def_bin_min = max(sflux_data['lambda'][0],2.)
         self.def_bin_max = min(sflux_data['lambda'][-1],700.)
 
         # Define what variables to save in the output file!
@@ -80,9 +80,6 @@ class Variables(object):
         self.threshold = {}
         # list of avaliable temperatures of cross sections 
         self.cross_T_sp_list = {}
-        
-        # TEST 
-        self.v_ratio = np.ones(nz)
         
 
 class AtmData(object):
@@ -133,7 +130,6 @@ class AtmData(object):
         # turning of df(e) while using charge conservation. it'll be very slow if not doing this
         if vulcan_cfg.use_ion: self.fix_e_indx = np.arange(spec_list.index('e'), spec_list.index('e') + ni*nz, ni)
         
-        # TEST condensation excluding non-gaseous species
         self.r_p, self.rho_p = {}, {}
         if vulcan_cfg.use_condense:
             for sp in vulcan_cfg.r_p.keys():

@@ -820,29 +820,27 @@ class Atm(object):
                 atm.sat_p[sp] = p_ayers * 1.01325*1e6 # arm to cgs
                 
             elif sp == "S2":
-                atm.sat_p[sp] = np.zeros(nz)
                 # from Zahnle 2017 (refitted from Lyons 2008)
-                atm.sat_p[sp][T<413] = np.exp(27. - 18500./T[T<413]) *1e6 # in bar => cgs
-                atm.sat_p[sp][T>=413] = np.exp(16.1 - 14000./T[T>=413]) *1e6
-            
+                atm.sat_p[sp] = np.where(T < 413,
+                    np.exp(27. - 18500./T) * 1e6,
+                    np.exp(16.1 - 14000./T) * 1e6)
+
             elif sp == "S4":
-                atm.sat_p[sp] = np.zeros(nz)
                 # from Lyons 2008
-                atm.sat_p[sp] = 10**(6.0028 -6047.5/T) *1.01325e6 # atm to vgs
-            
+                atm.sat_p[sp] = 10**(6.0028 - 6047.5/T) * 1.01325e6 # atm to cgs
+
             elif sp == "S8":
-                atm.sat_p[sp] = np.zeros(nz)
                 # from Zahnle 2017 (refitted from Lyons 2008)
-                atm.sat_p[sp][T<413] = np.exp(20. - 11800./T[T<413]) *1e6 # in bar => cgs
-                atm.sat_p[sp][T>=413] = np.exp(9.6 - 7510./T[T>=413]) *1e6
-            
+                atm.sat_p[sp] = np.where(T < 413,
+                    np.exp(20. - 11800./T) * 1e6,
+                    np.exp(9.6 - 7510./T) * 1e6)
+
             elif sp == "C":
-                atm.sat_p[sp] = np.zeros(nz)
                 # from NIST (dyna cm^-2)
                 a = 3.27860E+01
                 b = -8.65139E+04
-                c = 4.80395E-01 
-                atm.sat_p[sp] = np.exp(a+b/(atm.Tco +c) )
+                c = 4.80395E-01
+                atm.sat_p[sp] = np.exp(a + b/(atm.Tco + c))
                 
             elif sp == "H2S":
                 # from Giauque and Blue(1936) in cmHg (adoped in Atreya's book)

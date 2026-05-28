@@ -47,6 +47,7 @@ TEST_CFG_OVERRIDES = textwrap.dedent(f"""\
     # ---- regression-test overrides (appended by test_regression.py) ----
     count_max       = {TEST_STEPS}
     runtime         = 1e30       # don't stop on time, only on step count
+    use_photo       = False      # disable photochemistry so both codes use the same physics
     use_live_plot   = False
     use_plot_end    = False
     use_plot_evo    = False
