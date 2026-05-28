@@ -1,4 +1,5 @@
 numpy>=2.2
+pyfastchem>=4.0       # equilibrium chemistry initialisation (replaces bundled C++ FastChem)
 scipy>=1.15
 sympy>=1.14        # used by make_chem_funs.py; will be retired in Phase 2
 matplotlib>=3.10
