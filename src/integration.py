@@ -142,7 +142,7 @@ class Integration:
         
     def update_mu_dz(self, var, atm, make_atm):
         pref_indx = atm.pref_indx
-        Tco, pico = atm.Tco.copy(), atm.pico.copy()
+        Tco, pico = atm.Tco, atm.pico
         # calculating mu (mean molecular weight)
         atm = make_atm.mean_mass(var, atm, ni)
         Hp = atm.Hp
@@ -217,7 +217,7 @@ class Integration:
         '''
         st_factor, mtol_conv, atol, yconv_cri, slope_cri, yconv_min =\
          vulcan_cfg.st_factor, vulcan_cfg.mtol_conv, vulcan_cfg.atol, vulcan_cfg.yconv_cri, vulcan_cfg.slope_cri, vulcan_cfg.yconv_min
-        y, ymix, y_time, t_time = var.y.copy(), var.ymix.copy(), var.y_time, var.t_time
+        y, ymix, y_time, t_time = var.y, var.ymix, var.y_time, var.t_time
         count = para.count
         
         #slope_min = min( np.amin(atm.Kzz)/np.amax(0.1*atm.Hp)**2 , 1.e-8)

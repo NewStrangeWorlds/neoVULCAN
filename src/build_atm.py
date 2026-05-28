@@ -519,7 +519,7 @@ class Atm(object):
     def f_mu_dz(self, data_var, data_atm, output): # Initilising mean molecular weight and dz 
             
         dz, zco = data_atm.dz, data_atm.zco # pressure defined at interfaces
-        Tco, pico = data_atm.Tco.copy(), data_atm.pico.copy()
+        Tco, pico = data_atm.Tco, data_atm.pico
         Hp = data_atm.Hp
         
         if not vulcan_cfg.rocky and self.P_b >= 1e6: # if the lower BC greater than 1bar for gas giants

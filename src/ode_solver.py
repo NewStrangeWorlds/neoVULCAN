@@ -306,29 +306,21 @@ class ODESolver:
         zero-flux BC:  1st derivitive of y is zero
         """
         
-        y = var.y.copy()
-        # TEST condensation excluding non-gaseous species
+        y = var.y
         if vulcan_cfg.non_gas_sp:
             ysum = np.sum(y[:,atm.gas_indx], axis=1)
         else: ysum = np.sum(y, axis=1)
-        # TEST condensation excluding non-gaseous species
-        dzi = atm.dzi.copy()
-        Kzz = atm.Kzz.copy()
-        Dzz = atm.Dzz.copy()
-        vz = atm.vz.copy()
-        alpha = atm.alpha.copy()
-        Tco = atm.Tco.copy()
-        mu, ms = atm.mu.copy(),  atm.ms.copy()
-        g = atm.g
-        
-        # define T_1/2 for the molecular diffusion
-        #Ti = 0.5*(Tco + np.roll(Tco,-1))
-        #Ti = Ti[:-1]
-        
-        Ti = atm.Ti.copy()
-        Hpi = atm.Hpi.copy()
-        
-        
+        dzi   = atm.dzi
+        Kzz   = atm.Kzz
+        Dzz   = atm.Dzz
+        vz    = atm.vz
+        alpha = atm.alpha
+        Tco   = atm.Tco
+        ms    = atm.ms
+        g     = atm.g
+        Ti    = atm.Ti
+        Hpi   = atm.Hpi
+
         dfdy = achemjac(y, atm.M, var.k)
         j_indx = []
         
@@ -378,24 +370,21 @@ class ODESolver:
         jacobian matrix for dn/dt + dphi/dz = P - L (including molecular diffusion)
         zero-flux BC:  1st derivitive of y is zero
         """
-        y = var.y.copy()
-        # TEST condensation excluding non-gaseous species
+        y = var.y
         if vulcan_cfg.use_condense:
             ysum = np.sum(y[:,atm.gas_indx], axis=1)
         else:
             ysum = np.sum(y, axis=1)
-        # TEST condensation excluding non-gaseous species
-        dzi = atm.dzi.copy()
-        Kzz = atm.Kzz.copy()
-        Dzz = atm.Dzz.copy()
-        vz = atm.vz.copy()
-        alpha = atm.alpha.copy()
-        Tco = atm.Tco.copy()
-        mu, ms = atm.mu.copy(),  atm.ms.copy()
-        g = atm.g
-
-        Ti = atm.Ti.copy()
-        Hpi = atm.Hpi.copy()
+        dzi   = atm.dzi
+        Kzz   = atm.Kzz
+        Dzz   = atm.Dzz
+        vz    = atm.vz
+        alpha = atm.alpha
+        Tco   = atm.Tco
+        ms    = atm.ms
+        g     = atm.g
+        Ti    = atm.Ti
+        Hpi   = atm.Hpi
 
         # c0 = 1./(r*h) where r = 1. + 1./2.**0.5
         r = 1. + 1./2.**0.5
@@ -459,7 +448,7 @@ class ODESolver:
           row bw+ni   — lower off-diagonal  (layer j coupled to column j-1)
         Chemistry fills all rows bw±(0..ni-1) via the block fill.
         """
-        y = var.y.copy()
+        y = var.y
         if vulcan_cfg.use_condense:
             ysum = np.sum(y[:, atm.gas_indx], axis=1)
         else:
@@ -733,7 +722,7 @@ class ODESolver:
     def clip(self, var, para, atm):
         pos_cut  = vulcan_cfg.pos_cut
         nega_cut = vulcan_cfg.nega_cut
-        y, ymix = var.y, var.ymix.copy()
+        y, ymix = var.y, var.ymix
 
         para.small_y += np.abs(np.sum(y[np.logical_and(y<pos_cut, y>=0)]))
         para.nega_y  += np.abs(np.sum(y[np.logical_and(y>nega_cut, y<=0)]))

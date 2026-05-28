@@ -37,8 +37,8 @@ class ReadRate(object):
         re_tri, re_tri_k0 = self.re_tri, self.re_tri_k0
         list_tri = self.list_tri
         
-        Tco = atm.Tco.copy()
-        M = atm.M.copy()
+        Tco = atm.Tco
+        M = atm.M
         
         special_re = False
         conden_re = False
@@ -250,8 +250,8 @@ class ReadRate(object):
         for i in range(var.stop_rev_indx+1, nr+1,2):
             var.k[i] = np.zeros(nz)
        
-        Tco = atm.Tco.copy()
-        
+        Tco = atm.Tco
+
         # reversing rates and storing into data_var
         print ('Reverse rates from R1 to R' + str(var.stop_rev_indx-2))
         print ('Rates greater than 1e-6:')
