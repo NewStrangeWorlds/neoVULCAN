@@ -3,9 +3,8 @@ from numpy import polynomial
 import scipy
 from scipy import interpolate
 import scipy.optimize as sop
-import subprocess
 import pickle
-from shutil import copyfile 
+import pyfastchem
 
 import vulcan_cfg
 from phy_const import kb, Navo, r_sun, au
@@ -79,31 +78,26 @@ class InitialAbun(object):
     def ini_fc(self, data_var, data_atm):
         # reading-in the default elemental abundances from Lodders 2009
         # depending on including ion or not (whether there is e- in the fastchem elemental abundance dat)
-        tmp_str = ""
-        solar_ele = 'fastchem_vulcan/input/solar_element_abundances.dat'
-        if vulcan_cfg.use_ion:
-            copyfile('fastchem_vulcan/input/parameters_ion.dat', 'fastchem_vulcan/input/parameters.dat')
-        else:
-            copyfile('fastchem_vulcan/input/parameters_wo_ion.dat', 'fastchem_vulcan/input/parameters.dat')
-            
+        solar_ele = 'fastchem_input/element_abundances/lodders_2009.dat'
+
         with open(solar_ele ,'r') as f:
             new_str = ""
             ele_list = list(vulcan_cfg.atom_list)
             ele_list.remove('H')
-            
+
             fc_list = ['C', 'N', 'O', 'S', 'P', 'Si', 'Ti','V','Cl','K','Na','Mg','F','Ca','Fe']
-            
-            if vulcan_cfg.use_solar: 
+
+            if vulcan_cfg.use_solar:
                 new_str = f.read() # read in as a string
                 print ("Initializing with the default solar abundance.")
-                
+
             else: # using costomized elemental abundances
                 print ("Initializing with the customized elemental abundance:")
                 print ("{:4}".format('H') + str('1.'))
-                for line in f.readlines():   
+                for line in f.readlines():
                         li = line.split()
                         sp = li[0].strip()
-                        
+
                         if sp in ele_list:
                             # read-in vulcan_cfg.sp_H
                             sp_abun = getattr(vulcan_cfg, sp+'_H')
@@ -111,33 +105,45 @@ class InitialAbun(object):
                             line = sp + '\t' + "{0:.4f}".format(fc_abun) + '\n'
                             print ("{:4}".format(sp) + "{0:.4E}".format(sp_abun))
 
-                        elif sp in fc_list: # other elements included in fastchem but not in VULCAN 
+                        elif sp in fc_list: # other elements included in fastchem but not in VULCAN
                             sol_ratio = li[1].strip()
                             # print (sp + ":  " + str(sol_ratio))
-                            if hasattr(vulcan_cfg, 'fastchem_met_scale'): # vulcan_cfg.fastchem_met_scale exists 
+                            if hasattr(vulcan_cfg, 'fastchem_met_scale'): # vulcan_cfg.fastchem_met_scale exists
                                 met_scale = vulcan_cfg.fastchem_met_scale
                             else:
                                 met_scale = 1.
                                 print ("fastchem_met_scale not specified in vulcan_cfg. Using solar metallicity for other elements not included in vulcan.")
-                            
+
                             new_ratio = float(sol_ratio) + np.log10(met_scale)
                             line = sp + '\t' + "{0:.4f}".format(new_ratio) + '\n'
-                            
+
                         new_str += line
-                
+
             # make the new elemental abundance file
-            with open('fastchem_vulcan/input/element_abundances_vulcan.dat', 'w') as f: f.write(new_str)
-            
-        # write a T-P text file for fast_chem
-        with open('fastchem_vulcan/input/vulcan_TP/vulcan_TP.dat' ,'w') as f:
-            ost = '#p (bar)    T (K)\n'   
-            for n, p in enumerate(data_atm.pco): # p in bar in fast_chem
-                ost +=  '{:.3e}'.format(p/1.e6) + '\t' + '{:.1f}'.format(data_atm.Tco[n])  + '\n'
-            ost = ost[:-1]
-            f.write(ost)
-        
-        try: subprocess.check_call(["./fastchem input/config.input"], shell=True, cwd='fastchem_vulcan/') # check_call instead of call can catch the error 
-        except subprocess.CalledProcessError: print ('\n FastChem cannot run properly. Try compile it by running make under /fastchem_vulcan\n'); raise
+            with open('fastchem_input/element_abundances/element_abundances_vulcan.dat', 'w') as f: f.write(new_str)
+
+        logK_file = ('fastchem_input/logK/logK_vulcan_ion.dat'
+                     if vulcan_cfg.use_ion
+                     else 'fastchem_input/logK/logK_vulcan.dat')
+        elem_file = 'fastchem_input/element_abundances/element_abundances_vulcan.dat'
+
+        fc = pyfastchem.FastChem(elem_file, logK_file, 0)
+
+        input_data = pyfastchem.FastChemInput()
+        input_data.temperature = data_atm.Tco.tolist()
+        input_data.pressure = (data_atm.pco / 1e6).tolist()  # dyne/cm² → bar
+
+        output_data = pyfastchem.FastChemOutput()
+        fc.calcDensities(input_data, output_data)
+
+        number_densities = np.array(output_data.number_densities)  # [nz, n_species], cm⁻³
+
+        for sp in species:
+            fc_idx = fc.getGasSpeciesIndex(sp)
+            if fc_idx != pyfastchem.FASTCHEM_UNKNOWN_SPECIES:
+                data_var.y[:, species.index(sp)] = number_densities[:, fc_idx]
+            else:
+                print(sp + ' not included in fastchem.')
            
     def ini_y(self, data_var, data_atm): 
         # initial mixing ratios of the molecules
@@ -149,25 +155,12 @@ class InitialAbun(object):
         charge_list = [] # list of charged species excluding echarge_list
         
         if vulcan_cfg.ini_mix == 'EQ':
-        
+
             self.ini_fc(data_var, data_atm)
-            fc = np.genfromtxt('fastchem_vulcan/output/vulcan_EQ.dat', names=True, dtype=None, skip_header=0)
-            for sp in species:
-                # Atomic P hack (genfromtxt gets the Pressure as index otherwise)
-                if sp == 'P':
-                    y_ini[:,species.index(sp)] = fc['P_1']*gas_tot # this also changes data_var.y because the address of y array has passed to y_ini
-                    #print(sp,y_ini[:,species.index(sp)]/gas_tot)
-                    continue
-                if sp in fc.dtype.names:
-                    y_ini[:,species.index(sp)] = fc[sp]*gas_tot # this also changes data_var.y because the address of y array has passed to y_ini
-                
-                else: print (sp + ' not included in fastchem.')
-                
-                if vulcan_cfg.use_ion:
+
+            if vulcan_cfg.use_ion:
+                for sp in species:
                     if compo[compo_row.index(sp)]['e'] != 0: charge_list.append(sp)
-            
-            # remove the fc output
-            subprocess.call(["rm vulcan_EQ.dat"], shell=True, cwd='fastchem_vulcan/output/')
                              
         elif vulcan_cfg.ini_mix == 'vulcan_ini':
             print ("Initializing with compositions from the prvious run " + vulcan_cfg.vul_ini)
