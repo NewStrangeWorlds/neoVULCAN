@@ -9,8 +9,8 @@ except ImportError:
     except ImportError: vulcan_cfg.use_PIL = False
 
 import build_atm
-import chem_funs
-from chem_funs import ni, nr
+import chemistry_jax as chem_funs
+from chemistry_jax import ni, nr
 
 compo = build_atm.compo
 compo_row = build_atm.compo_row

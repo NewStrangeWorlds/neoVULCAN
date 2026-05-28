@@ -3,8 +3,8 @@ import scipy
 
 import vulcan_cfg
 import build_atm
-import chem_funs
-from chem_funs import ni
+import chemistry_jax as chem_funs
+from chemistry_jax import ni
 from vulcan_cfg import nz
 
 from chemistry_jax import chemdf

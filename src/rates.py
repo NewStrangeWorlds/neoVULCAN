@@ -4,8 +4,8 @@ import os
 
 import vulcan_cfg
 import build_atm
-import chem_funs
-from chem_funs import ni, nr
+import chemistry_jax as chem_funs
+from chemistry_jax import ni, nr
 from vulcan_cfg import nz
 
 compo = build_atm.compo

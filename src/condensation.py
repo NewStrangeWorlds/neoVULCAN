@@ -1,7 +1,7 @@
 import numpy as np
 
 import vulcan_cfg
-import chem_funs
+import chemistry_jax as chem_funs
 from phy_const import kb, Navo
 from vulcan_cfg import nz
 

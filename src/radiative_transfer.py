@@ -3,7 +3,7 @@ from typing import Protocol, runtime_checkable
 import numpy as np
 
 import vulcan_cfg
-import chem_funs
+import chemistry_jax as chem_funs
 from phy_const import hc, ag0
 from vulcan_cfg import nz
 

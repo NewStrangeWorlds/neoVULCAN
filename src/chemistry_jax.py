@@ -5,22 +5,33 @@ Network : thermo/PHO_full_photo_network.txt
 Species : 32    Reactions (fwd+rev): 424
 
 Public API (NumPy, no JAX overhead):
-    chemdf(y, M, k_dict)       -> (nz, ni)       dn/dt from chemistry
-    chem_jac_blocks(y, M, k_dict) -> (nz, ni, ni) positive Jacobian
-    neg_achemjac(y, M, k_dict) -> (ni*nz, ni*nz) negative block-diag Jacobian
-
-JAX fallback (for future GPU use):  chemdf_jax, _jac_jit
+    chemdf(y, M, k_dict)          -> (nz, ni)       dn/dt from chemistry
+    chem_jac_blocks(y, M, k_dict) -> (nz, ni, ni)   positive Jacobian
+    neg_achemjac(y, M, k_dict)    -> (ni*nz, ni*nz) negative block-diag Jacobian
+    Gibbs(i, T)                   -> scalar          K_eq for forward reaction i
+    spec_list                     : list[str]        species names in index order
+    ni, nr                        : int              species count, reaction count
 """
 
 import numpy as np
 import jax
 import jax.numpy as jnp
 from scipy.linalg import block_diag as _scipy_block_diag
+from phy_const import kb, Navo
 
 # Enable 64-bit floats (JAX defaults to float32; VULCAN uses float64 throughout).
 jax.config.update("jax_enable_x64", True)
 # Force JAX onto CPU for single-run workloads.
 jax.config.update("jax_default_device", jax.devices("cpu")[0])
+
+
+# ---------------------------------------------------------------------------
+# Network metadata
+# ---------------------------------------------------------------------------
+
+spec_list = ['O', 'OH', 'O2', 'H', 'H2', 'H2O', 'O_1', 'HO2', 'H2O2', 'HOPO2', 'PO3', 'PO', 'PO2', 'P', 'PH', 'HPO', 'HOPO', 'P2O3', 'PH3', 'PH2', 'P2O', 'P2', 'P2O2', 'H2POH', 'HPOH', 'He', 'P2H', 'P2H4', 'P2H2', 'P4O6', 'H3PO4', 'P4']
+ni = 32
+nr = 424
 
 
 # ---------------------------------------------------------------------------
@@ -6221,6 +6232,272 @@ def chem_jac_numpy(y, M, k):
     )
     return J
 
+
+
+# ---------------------------------------------------------------------------
+# Thermodynamic functions (NASA-9 polynomials)
+# Included verbatim from: thermo/gibbs_text.txt
+# ---------------------------------------------------------------------------
+
+corr = kb/1.e6  #P0=1.e6
+
+# the data of 'H2CO' is from Brucat's 2015 
+#C2H NASA 9 new from Brucat
+nasa9 = {} 
+for i in [ _ for _ in spec_list]:
+    nasa9[i] = np.loadtxt('thermo/NASA9/' + str(i) + '.txt')
+    nasa9[i] = nasa9[i].flatten()
+    nasa9[i,'low'] = nasa9[i][0:10]
+    nasa9[i,'high'] = nasa9[i][10:20]
+	
+#H/RT
+def h_RT(T,a):
+    return -a[0]/T**2 + a[1]*np.log(T)/T + a[2] + a[3]*T/2. + a[4]*T**2/3. + a[5]*T**3/4. + a[6]*T**4/5. + a[8]/T
+    
+#s/R    
+def s_R(T,a):
+    return -a[0]/T**2/2. -a[1]/T + a[2]*np.log(T) + a[3]*T + a[4]*T**2/2. + a[5]*T**3/3. + a[6]*T**4/4. + a[9]
+
+#g/RT (non-dimensional)
+def g_RT(T,a_low,a_high): # T has to be 200 < T < 6000 K
+    gi = (T < 1000)*(h_RT(T, a_low)-s_R(T, a_low)) + (T >= 1000)*(h_RT(T, a_high)-s_R(T, a_high))
+
+    return gi
+    
+def gibbs_sp(i,T):
+    gi = g_RT(T,nasa9[i,'low'],nasa9[i,'high'])
+    return gi
+
+#cp/R
+def cp_R(T,a):
+    return a[0]/T**2 + a[1]/T + a[2] + a[3]*T + a[4]*T**2 + a[5]*T**3 + a[6]*T**4
+
+#cp/R of species sp
+def cp_R_sp(i,T):
+    if np.any(np.logical_or(T < 200, T > 6000)):
+        print ('T exceeds the valid range.')
+    cp =  (T < 1000)*cp_R(T,nasa9[i,'low']) + (T >= 1000)*cp_R(T,nasa9[i,'high'])
+    return cp
+
+def Gibbs(i, T):
+    """Return K_eq for forward reaction i at temperature T.
+
+    Derived from NASA-9 Gibbs free energies; units consistent with rate coefficients.
+    """
+    G = {}
+    G[1] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('OH',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('H',T) ) )
+    G[3] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('H2',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('H',T) ) )
+    G[5] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('H2O',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('OH',T) ) )
+    G[7] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('H2',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('H',T) ) )
+    G[9] = lambda T: np.exp( -(-1*gibbs_sp('O_1',T)-1*gibbs_sp('H2',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('H',T) ) )
+    G[11] = lambda T: np.exp( -(-1*gibbs_sp('O_1',T)-1*gibbs_sp('O2',T)+1*gibbs_sp('O',T)+1*gibbs_sp('O2',T) ) )
+    G[13] = lambda T: np.exp( -(-1*gibbs_sp('O_1',T)-1*gibbs_sp('H2O',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('OH',T) ) )
+    G[15] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('H',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('OH',T) ) )
+    G[17] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('H',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('H2',T) ) )
+    G[19] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('HO2',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('O2',T) ) )
+    G[21] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('HO2',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('O2',T) ) )
+    G[23] = lambda T: np.exp( -(-1*gibbs_sp('H2O2',T)-1*gibbs_sp('H',T)+1*gibbs_sp('H2',T)+1*gibbs_sp('HO2',T) ) )
+    G[25] = lambda T: np.exp( -(-1*gibbs_sp('H2O2',T)-1*gibbs_sp('H',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('H2O',T) ) )
+    G[27] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('H2O2',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('HO2',T) ) )
+    G[29] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('H2O2',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('HO2',T) ) )
+    G[31] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('HOPO2',T)+1*gibbs_sp('PO3',T)+1*gibbs_sp('H2O',T) ) )
+    G[33] = lambda T: np.exp( -(-1*gibbs_sp('H2',T)-1*gibbs_sp('PO3',T)+1*gibbs_sp('H',T)+1*gibbs_sp('HOPO2',T) ) )
+    G[35] = lambda T: np.exp( -(-1*gibbs_sp('O2',T)-1*gibbs_sp('PO',T)+1*gibbs_sp('O',T)+1*gibbs_sp('PO2',T) ) )
+    G[37] = lambda T: np.exp( -(-1*gibbs_sp('O2',T)-1*gibbs_sp('P',T)+1*gibbs_sp('O',T)+1*gibbs_sp('PO',T) ) )
+    G[39] = lambda T: np.exp( -(-1*gibbs_sp('O2',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('O',T)+1*gibbs_sp('HPO',T) ) )
+    G[41] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('HOPO',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('PO',T) ) )
+    G[43] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('HOPO',T)+1*gibbs_sp('H2',T)+1*gibbs_sp('PO2',T) ) )
+    G[45] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('HOPO2',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('PO2',T) ) )
+    G[47] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('HOPO',T)+1*gibbs_sp('H',T)+1*gibbs_sp('PO3',T) ) )
+    G[49] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('PO3',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('PO2',T) ) )
+    G[51] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('P2O3',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('HOPO',T) ) )
+    G[53] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('HPO',T)+1*gibbs_sp('H2',T)+1*gibbs_sp('PO',T) ) )
+    G[55] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('PH3',T)+1*gibbs_sp('H2',T)+1*gibbs_sp('PH2',T) ) )
+    G[57] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('H2',T)+1*gibbs_sp('PH',T) ) )
+    G[59] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('P',T)+1*gibbs_sp('H2',T) ) )
+    G[61] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('P2',T) ) )
+    G[63] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('PH',T) ) )
+    G[65] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('HPO',T)+1*gibbs_sp('P',T) ) )
+    G[67] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('P2O2',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('HPO',T) ) )
+    G[69] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('H2POH',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('PH2',T) ) )
+    G[71] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('H2POH',T)+1*gibbs_sp('H2',T)+1*gibbs_sp('HPOH',T) ) )
+    G[73] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('PH',T) ) )
+    G[75] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('H2',T)+1*gibbs_sp('HPO',T) ) )
+    G[77] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('HOPO',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('PO2',T) ) )
+    G[79] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('HOPO2',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('HOPO',T) ) )
+    G[81] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('PO3',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('PO2',T) ) )
+    G[83] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('P2O3',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('PO3',T) ) )
+    G[85] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('P2O3',T)+1*gibbs_sp('PO2',T)+1*gibbs_sp('PO2',T) ) )
+    G[87] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('HPO',T)+1*gibbs_sp('H',T)+1*gibbs_sp('PO2',T) ) )
+    G[89] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('HPO',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('PO',T) ) )
+    G[91] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('P2',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('P',T) ) )
+    G[93] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('PH3',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('PH2',T) ) )
+    G[95] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('PH3',T)+1*gibbs_sp('HPOH',T)+1*gibbs_sp('H',T) ) )
+    G[97] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('H',T)+1*gibbs_sp('HPO',T) ) )
+    G[99] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('PH',T) ) )
+    G[101] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('H',T) ) )
+    G[103] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('P',T) ) )
+    G[105] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('P2',T) ) )
+    G[107] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('PO',T) ) )
+    G[109] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('PO2',T)+1*gibbs_sp('P',T) ) )
+    G[111] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('P2O2',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('P2O',T) ) )
+    G[113] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('P2O2',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('PO2',T) ) )
+    G[115] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('H2POH',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('HPOH',T) ) )
+    G[117] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('H',T)+1*gibbs_sp('HOPO',T) ) )
+    G[119] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('HPO',T) ) )
+    G[121] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('PO',T)+1*gibbs_sp('H',T)+1*gibbs_sp('PO2',T) ) )
+    G[123] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('HOPO',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('PO2',T) ) )
+    G[125] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('HOPO',T)+1*gibbs_sp('H',T)+1*gibbs_sp('HOPO2',T) ) )
+    G[127] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('HOPO2',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('PO3',T) ) )
+    G[129] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('P2O3',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('HOPO2',T) ) )
+    G[131] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('P2O3',T)+1*gibbs_sp('PO2',T)+1*gibbs_sp('HOPO',T) ) )
+    G[133] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('HPO',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('PO',T) ) )
+    G[135] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('HPO',T)+1*gibbs_sp('H',T)+1*gibbs_sp('HOPO',T) ) )
+    G[137] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('P',T)+1*gibbs_sp('H',T)+1*gibbs_sp('PO',T) ) )
+    G[139] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('PH3',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('PH2',T) ) )
+    G[141] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('PH3',T)+1*gibbs_sp('H',T)+1*gibbs_sp('H2POH',T) ) )
+    G[143] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('PH',T) ) )
+    G[145] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('H',T)+1*gibbs_sp('HPOH',T) ) )
+    G[147] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('P',T) ) )
+    G[149] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('H',T)+1*gibbs_sp('HPO',T) ) )
+    G[151] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('H',T)+1*gibbs_sp('P2O2',T) ) )
+    G[153] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('HOPO',T)+1*gibbs_sp('P',T) ) )
+    G[155] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('P2O2',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('HOPO',T) ) )
+    G[157] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('H2POH',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('HPOH',T) ) )
+    G[159] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('H2O',T)+1*gibbs_sp('HPO',T) ) )
+    G[161] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('PO',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('HPO',T) ) )
+    G[163] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('PO',T)+1*gibbs_sp('O',T)+1*gibbs_sp('HOPO',T) ) )
+    G[165] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('PO',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('PO2',T) ) )
+    G[167] = lambda T: np.exp( -(-1*gibbs_sp('O2',T)-1*gibbs_sp('HOPO',T)+1*gibbs_sp('HO2',T)+1*gibbs_sp('PO2',T) ) )
+    G[169] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('PO2',T)+1*gibbs_sp('O',T)+1*gibbs_sp('HOPO2',T) ) )
+    G[171] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('PO2',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('PO3',T) ) )
+    G[173] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('HOPO',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('HOPO2',T) ) )
+    G[175] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('HOPO',T)+1*gibbs_sp('H2O2',T)+1*gibbs_sp('PO2',T) ) )
+    G[177] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('HOPO2',T)+1*gibbs_sp('H2O2',T)+1*gibbs_sp('PO3',T) ) )
+    G[179] = lambda T: np.exp( -(-1*gibbs_sp('O2',T)-1*gibbs_sp('HOPO2',T)+1*gibbs_sp('HO2',T)+1*gibbs_sp('PO3',T) ) )
+    G[181] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('HPO',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('HPOH',T) ) )
+    G[183] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('P',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('PH',T) ) )
+    G[185] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('P',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('PO',T) ) )
+    G[187] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('P2',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('P2O',T) ) )
+    G[189] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('PH3',T) ) )
+    G[191] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('O',T)+1*gibbs_sp('H2POH',T) ) )
+    G[193] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('PH2',T) ) )
+    G[195] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('O',T)+1*gibbs_sp('HPOH',T) ) )
+    G[197] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('HPO',T) ) )
+    G[199] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('P2O2',T) ) )
+    G[201] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('O2',T)+1*gibbs_sp('H2POH',T) ) )
+    G[203] = lambda T: np.exp( -(-1*gibbs_sp('PO',T)-1*gibbs_sp('HOPO2',T)+1*gibbs_sp('PO2',T)+1*gibbs_sp('HOPO',T) ) )
+    G[205] = lambda T: np.exp( -(-1*gibbs_sp('PO',T)-1*gibbs_sp('PO3',T)+1*gibbs_sp('PO2',T)+1*gibbs_sp('PO2',T) ) )
+    G[207] = lambda T: np.exp( -(-1*gibbs_sp('PO',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('PO2',T)+1*gibbs_sp('P2',T) ) )
+    G[209] = lambda T: np.exp( -(-1*gibbs_sp('PO',T)-1*gibbs_sp('P2O2',T)+1*gibbs_sp('PO2',T)+1*gibbs_sp('P2O',T) ) )
+    G[211] = lambda T: np.exp( -(-1*gibbs_sp('PO',T)-1*gibbs_sp('H2POH',T)+1*gibbs_sp('HOPO',T)+1*gibbs_sp('PH2',T) ) )
+    G[213] = lambda T: np.exp( -(-1*gibbs_sp('PO',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('HOPO',T)+1*gibbs_sp('PH',T) ) )
+    G[215] = lambda T: np.exp( -(-1*gibbs_sp('PO',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('HPO',T)+1*gibbs_sp('HPO',T) ) )
+    G[217] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('HPO',T)+1*gibbs_sp('H',T)+1*gibbs_sp('P2O3',T) ) )
+    G[219] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('HPO',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('HOPO',T) ) )
+    G[221] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('P',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('PO',T) ) )
+    G[223] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('PH3',T)+1*gibbs_sp('HOPO',T)+1*gibbs_sp('PH2',T) ) )
+    G[225] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('HOPO',T)+1*gibbs_sp('PH',T) ) )
+    G[227] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('HPO',T) ) )
+    G[229] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('HOPO',T)+1*gibbs_sp('P',T) ) )
+    G[231] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('PO3',T)+1*gibbs_sp('P2',T) ) )
+    G[233] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('P2O3',T)+1*gibbs_sp('P',T) ) )
+    G[235] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('P2O2',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('P2O3',T) ) )
+    G[237] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('H2POH',T)+1*gibbs_sp('HOPO',T)+1*gibbs_sp('HPOH',T) ) )
+    G[239] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('H2POH',T)+1*gibbs_sp('HOPO2',T)+1*gibbs_sp('PH2',T) ) )
+    G[241] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('HOPO',T)+1*gibbs_sp('HPO',T) ) )
+    G[243] = lambda T: np.exp( -(-1*gibbs_sp('PO2',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('HOPO2',T)+1*gibbs_sp('PH',T) ) )
+    G[245] = lambda T: np.exp( -(-1*gibbs_sp('HOPO',T)-1*gibbs_sp('PO3',T)+1*gibbs_sp('PO2',T)+1*gibbs_sp('HOPO2',T) ) )
+    G[247] = lambda T: np.exp( -(-1*gibbs_sp('HOPO',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('HOPO2',T)+1*gibbs_sp('P2',T) ) )
+    G[249] = lambda T: np.exp( -(-1*gibbs_sp('HOPO',T)-1*gibbs_sp('P2O2',T)+1*gibbs_sp('HOPO2',T)+1*gibbs_sp('P2O',T) ) )
+    G[251] = lambda T: np.exp( -(-1*gibbs_sp('HOPO2',T)-1*gibbs_sp('P',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('HOPO',T) ) )
+    G[253] = lambda T: np.exp( -(-1*gibbs_sp('HOPO2',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('HOPO',T)+1*gibbs_sp('HPO',T) ) )
+    G[255] = lambda T: np.exp( -(-1*gibbs_sp('PO3',T)-1*gibbs_sp('HPO',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('HOPO2',T) ) )
+    G[257] = lambda T: np.exp( -(-1*gibbs_sp('PO3',T)-1*gibbs_sp('P',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('PO2',T) ) )
+    G[259] = lambda T: np.exp( -(-1*gibbs_sp('PO3',T)-1*gibbs_sp('PH3',T)+1*gibbs_sp('HOPO2',T)+1*gibbs_sp('PH2',T) ) )
+    G[261] = lambda T: np.exp( -(-1*gibbs_sp('PO3',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('HOPO2',T)+1*gibbs_sp('PH',T) ) )
+    G[263] = lambda T: np.exp( -(-1*gibbs_sp('PO3',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('PO2',T)+1*gibbs_sp('HPO',T) ) )
+    G[265] = lambda T: np.exp( -(-1*gibbs_sp('PO3',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('HOPO2',T)+1*gibbs_sp('P',T) ) )
+    G[267] = lambda T: np.exp( -(-1*gibbs_sp('PO3',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('PO2',T)+1*gibbs_sp('P2O2',T) ) )
+    G[269] = lambda T: np.exp( -(-1*gibbs_sp('PO3',T)-1*gibbs_sp('H2POH',T)+1*gibbs_sp('HOPO2',T)+1*gibbs_sp('HPOH',T) ) )
+    G[271] = lambda T: np.exp( -(-1*gibbs_sp('PO3',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('HOPO2',T)+1*gibbs_sp('HPO',T) ) )
+    G[273] = lambda T: np.exp( -(-1*gibbs_sp('HPO',T)-1*gibbs_sp('P',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('PH',T) ) )
+    G[275] = lambda T: np.exp( -(-1*gibbs_sp('HPO',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('PH3',T) ) )
+    G[277] = lambda T: np.exp( -(-1*gibbs_sp('HPO',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('PH2',T) ) )
+    G[279] = lambda T: np.exp( -(-1*gibbs_sp('HPO',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('H2POH',T) ) )
+    G[281] = lambda T: np.exp( -(-1*gibbs_sp('P',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('H',T)+1*gibbs_sp('P2',T) ) )
+    G[283] = lambda T: np.exp( -(-1*gibbs_sp('P',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('P2',T) ) )
+    G[285] = lambda T: np.exp( -(-1*gibbs_sp('P',T)-1*gibbs_sp('P2O2',T)+1*gibbs_sp('PO',T)+1*gibbs_sp('P2O',T) ) )
+    G[287] = lambda T: np.exp( -(-1*gibbs_sp('P',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('HPO',T)+1*gibbs_sp('PH',T) ) )
+    G[289] = lambda T: np.exp( -(-1*gibbs_sp('PH3',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('PH2',T)+1*gibbs_sp('PH2',T) ) )
+    G[291] = lambda T: np.exp( -(-1*gibbs_sp('PH3',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('PH2',T)+1*gibbs_sp('H2POH',T) ) )
+    G[293] = lambda T: np.exp( -(-1*gibbs_sp('PH2',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('P',T)+1*gibbs_sp('PH3',T) ) )
+    G[295] = lambda T: np.exp( -(-1*gibbs_sp('PH2',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('HPO',T)+1*gibbs_sp('PH3',T) ) )
+    G[297] = lambda T: np.exp( -(-1*gibbs_sp('PH',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('P',T)+1*gibbs_sp('PH2',T) ) )
+    G[299] = lambda T: np.exp( -(-1*gibbs_sp('PH',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('HPO',T)+1*gibbs_sp('P2',T) ) )
+    G[301] = lambda T: np.exp( -(-1*gibbs_sp('PH',T)-1*gibbs_sp('P2O2',T)+1*gibbs_sp('HPO',T)+1*gibbs_sp('P2O',T) ) )
+    G[303] = lambda T: np.exp( -(-1*gibbs_sp('PH',T)-1*gibbs_sp('H2POH',T)+1*gibbs_sp('PH2',T)+1*gibbs_sp('HPOH',T) ) )
+    G[305] = lambda T: np.exp( -(-1*gibbs_sp('PH',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('HPO',T)+1*gibbs_sp('PH2',T) ) )
+    G[307] = lambda T: np.exp( -(-1*gibbs_sp('PH',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('P',T)+1*gibbs_sp('H2POH',T) ) )
+    G[309] = lambda T: np.exp( -(-1*gibbs_sp('P2O',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('P2',T)+1*gibbs_sp('P2O2',T) ) )
+    G[311] = lambda T: np.exp( -(-1*gibbs_sp('HPOH',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('HPO',T)+1*gibbs_sp('H2POH',T) ) )
+    G[313] = lambda T: np.exp( -(-1*gibbs_sp('He',T)+1*gibbs_sp('He',T) ) )
+    G[315] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('H',T)+1*gibbs_sp('H2',T) ) )*(corr*T)**1
+    G[317] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('O',T)+1*gibbs_sp('OH',T) ) )*(corr*T)**1
+    G[319] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('H',T)+1*gibbs_sp('H2O',T) ) )*(corr*T)**1
+    G[321] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('O2',T)+1*gibbs_sp('HO2',T) ) )*(corr*T)**1
+    G[323] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)-1*gibbs_sp('HO2',T)+1*gibbs_sp('H2O2',T)+1*gibbs_sp('O2',T) ) )
+    G[325] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('OH',T)+1*gibbs_sp('H2O2',T) ) )*(corr*T)**1
+    G[327] = lambda T: np.exp( -(-1*gibbs_sp('PH3',T)+1*gibbs_sp('PH2',T)+1*gibbs_sp('H',T) ) )*(corr*T)**-1
+    G[329] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('PO2',T)+1*gibbs_sp('HOPO',T) ) )*(corr*T)**1
+    G[331] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('PO2',T)+1*gibbs_sp('HOPO2',T) ) )*(corr*T)**1
+    G[333] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('P2',T)+1*gibbs_sp('P2H',T) ) )*(corr*T)**1
+    G[335] = lambda T: np.exp( -(-1*gibbs_sp('PO',T)-1*gibbs_sp('PO2',T)+1*gibbs_sp('P2O3',T) ) )*(corr*T)**1
+    G[337] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('P',T)+1*gibbs_sp('PH',T) ) )*(corr*T)**1
+    G[339] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('PH2',T) ) )*(corr*T)**1
+    G[341] = lambda T: np.exp( -(-1*gibbs_sp('PH2',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('P2H4',T) ) )*(corr*T)**1
+    G[343] = lambda T: np.exp( -(-1*gibbs_sp('P2H2',T)-1*gibbs_sp('H2',T)+1*gibbs_sp('P2H4',T) ) )*(corr*T)**1
+    G[345] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('P',T)+1*gibbs_sp('HPO',T) ) )*(corr*T)**1
+    G[347] = lambda T: np.exp( -(-1*gibbs_sp('P2O3',T)-1*gibbs_sp('P2O3',T)+1*gibbs_sp('P4O6',T) ) )*(corr*T)**1
+    G[349] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('O',T)+1*gibbs_sp('O2',T) ) )*(corr*T)**1
+    G[351] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('PO',T)+1*gibbs_sp('HPO',T) ) )*(corr*T)**1
+    G[353] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('PO3',T)+1*gibbs_sp('HOPO2',T) ) )*(corr*T)**1
+    G[355] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('HPO',T)+1*gibbs_sp('HPOH',T) ) )*(corr*T)**1
+    G[357] = lambda T: np.exp( -(-1*gibbs_sp('H',T)-1*gibbs_sp('HPOH',T)+1*gibbs_sp('H2POH',T) ) )*(corr*T)**1
+    G[359] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('PO',T)+1*gibbs_sp('PO2',T) ) )*(corr*T)**1
+    G[361] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('PO2',T)+1*gibbs_sp('PO3',T) ) )*(corr*T)**1
+    G[363] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('HOPO',T)+1*gibbs_sp('HOPO2',T) ) )*(corr*T)**1
+    G[365] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('P',T)+1*gibbs_sp('PO',T) ) )*(corr*T)**1
+    G[367] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('PO',T)+1*gibbs_sp('HOPO',T) ) )*(corr*T)**1
+    G[369] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('PH2',T)+1*gibbs_sp('H2POH',T) ) )*(corr*T)**1
+    G[371] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('HPOH',T) ) )*(corr*T)**1
+    G[373] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('P2',T)+1*gibbs_sp('P2O',T) ) )*(corr*T)**1
+    G[375] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('PH',T)+1*gibbs_sp('HPO',T) ) )*(corr*T)**1
+    G[377] = lambda T: np.exp( -(-1*gibbs_sp('O',T)-1*gibbs_sp('P2O',T)+1*gibbs_sp('P2O2',T) ) )*(corr*T)**1
+    G[379] = lambda T: np.exp( -(-1*gibbs_sp('PO',T)-1*gibbs_sp('PO',T)+1*gibbs_sp('P2O2',T) ) )*(corr*T)**1
+    G[381] = lambda T: np.exp( -(-1*gibbs_sp('PO',T)-1*gibbs_sp('P',T)+1*gibbs_sp('P2O',T) ) )*(corr*T)**1
+    G[383] = lambda T: np.exp( -(-1*gibbs_sp('HOPO2',T)-1*gibbs_sp('H2O',T)+1*gibbs_sp('H3PO4',T) ) )*(corr*T)**1
+    G[385] = lambda T: np.exp( -(-1*gibbs_sp('P',T)-1*gibbs_sp('P',T)+1*gibbs_sp('P2',T) ) )*(corr*T)**1
+    G[387] = lambda T: np.exp( -(-1*gibbs_sp('P2',T)-1*gibbs_sp('P2',T)+1*gibbs_sp('P4',T) ) )*(corr*T)**1
+    G[389] = lambda T: np.exp( -(-1*gibbs_sp('H2O',T)+1*gibbs_sp('H',T)+1*gibbs_sp('OH',T) ) )*(corr*T)**-1
+    G[391] = lambda T: np.exp( -(-1*gibbs_sp('H2O',T)+1*gibbs_sp('H2',T)+1*gibbs_sp('O_1',T) ) )*(corr*T)**-1
+    G[393] = lambda T: np.exp( -(-1*gibbs_sp('H2O',T)+1*gibbs_sp('H',T)+1*gibbs_sp('H',T)+1*gibbs_sp('O',T) ) )*(corr*T)**-2
+    G[395] = lambda T: np.exp( -(-1*gibbs_sp('H2',T)+1*gibbs_sp('H',T)+1*gibbs_sp('H',T) ) )*(corr*T)**-1
+    G[397] = lambda T: np.exp( -(-1*gibbs_sp('OH',T)+1*gibbs_sp('H',T)+1*gibbs_sp('O',T) ) )*(corr*T)**-1
+    G[399] = lambda T: np.exp( -(-1*gibbs_sp('HO2',T)+1*gibbs_sp('O',T)+1*gibbs_sp('OH',T) ) )*(corr*T)**-1
+    G[401] = lambda T: np.exp( -(-1*gibbs_sp('H2O2',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('OH',T) ) )*(corr*T)**-1
+    G[403] = lambda T: np.exp( -(-1*gibbs_sp('O2',T)+1*gibbs_sp('O',T)+1*gibbs_sp('O',T) ) )*(corr*T)**-1
+    G[405] = lambda T: np.exp( -(-1*gibbs_sp('O2',T)+1*gibbs_sp('O',T)+1*gibbs_sp('O_1',T) ) )*(corr*T)**-1
+    G[407] = lambda T: np.exp( -(-1*gibbs_sp('PH',T)+1*gibbs_sp('P',T)+1*gibbs_sp('H',T) ) )*(corr*T)**-1
+    G[409] = lambda T: np.exp( -(-1*gibbs_sp('PH2',T)+1*gibbs_sp('PH',T)+1*gibbs_sp('H',T) ) )*(corr*T)**-1
+    G[411] = lambda T: np.exp( -(-1*gibbs_sp('PH3',T)+1*gibbs_sp('PH2',T)+1*gibbs_sp('H',T) ) )*(corr*T)**-1
+    G[413] = lambda T: np.exp( -(-1*gibbs_sp('PO',T)+1*gibbs_sp('P',T)+1*gibbs_sp('O',T) ) )*(corr*T)**-1
+    G[415] = lambda T: np.exp( -(-1*gibbs_sp('HOPO',T)+1*gibbs_sp('H',T)+1*gibbs_sp('PO2',T) ) )*(corr*T)**-1
+    G[417] = lambda T: np.exp( -(-1*gibbs_sp('HOPO2',T)+1*gibbs_sp('OH',T)+1*gibbs_sp('PO2',T) ) )*(corr*T)**-1
+    G[419] = lambda T: np.exp( -(-1*gibbs_sp('P2',T)+1*gibbs_sp('P',T)+1*gibbs_sp('P',T) ) )*(corr*T)**-1
+    G[421] = lambda T: np.exp( -(-1*gibbs_sp('P2H2',T)+1*gibbs_sp('PH',T)+1*gibbs_sp('PH',T) ) )*(corr*T)**-1
+    G[423] = lambda T: np.exp( -(-1*gibbs_sp('P2H4',T)+1*gibbs_sp('PH2',T)+1*gibbs_sp('PH2',T) ) )*(corr*T)**-1
+    return G[i](T)
 # ---------------------------------------------------------------------------
 # JAX JIT-compiled vmapped versions (available as fallback / GPU path)
 # ---------------------------------------------------------------------------
@@ -6272,7 +6549,7 @@ def _k_safe(k_dict, nz):
 
 
 def chemdf(y, M, k_dict):
-    """Drop-in for chem_funs.chemdf(y, M, k).
+    """Compute dn/dt from chemistry.
 
     y      : (nz, ni) numpy array
     M      : (nz,)    numpy array
@@ -6301,10 +6578,9 @@ def chem_jac_blocks(y, M, k_dict):
 
 
 def neg_achemjac(y, M, k_dict):
-    """Drop-in for chem_funs.neg_symjac(y, M, k).
+    """Return the negative chemistry Jacobian as a dense (ni*nz, ni*nz) NumPy array.
 
-    Returns the *negative* chemistry Jacobian as a dense (ni*nz, ni*nz)
-    NumPy array (block-diagonal; diffusion coupling added by the caller).
+    Block-diagonal; diffusion coupling is added by the caller.
     Backend selected by USE_JAX_CHEM.
     """
     return _scipy_block_diag(*(-chem_jac_blocks(y, M, k_dict)))

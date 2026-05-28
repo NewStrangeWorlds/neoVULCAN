@@ -261,22 +261,33 @@ Network : {network}
 Species : {ni}    Reactions (fwd+rev): {nr}
 
 Public API (NumPy, no JAX overhead):
-    chemdf(y, M, k_dict)       -> (nz, ni)       dn/dt from chemistry
-    chem_jac_blocks(y, M, k_dict) -> (nz, ni, ni) positive Jacobian
-    neg_achemjac(y, M, k_dict) -> (ni*nz, ni*nz) negative block-diag Jacobian
-
-JAX fallback (for future GPU use):  chemdf_jax, _jac_jit
+    chemdf(y, M, k_dict)          -> (nz, ni)       dn/dt from chemistry
+    chem_jac_blocks(y, M, k_dict) -> (nz, ni, ni)   positive Jacobian
+    neg_achemjac(y, M, k_dict)    -> (ni*nz, ni*nz) negative block-diag Jacobian
+    Gibbs(i, T)                   -> scalar          K_eq for forward reaction i
+    spec_list                     : list[str]        species names in index order
+    ni, nr                        : int              species count, reaction count
 """
 
 import numpy as np
 import jax
 import jax.numpy as jnp
 from scipy.linalg import block_diag as _scipy_block_diag
+from phy_const import kb, Navo
 
 # Enable 64-bit floats (JAX defaults to float32; VULCAN uses float64 throughout).
 jax.config.update("jax_enable_x64", True)
 # Force JAX onto CPU for single-run workloads.
 jax.config.update("jax_default_device", jax.devices("cpu")[0])
+
+
+# ---------------------------------------------------------------------------
+# Network metadata
+# ---------------------------------------------------------------------------
+
+spec_list = {spec_list!r}
+ni = {ni}
+nr = {nr}
 
 
 # ---------------------------------------------------------------------------
@@ -348,7 +359,7 @@ def _k_safe(k_dict, nz):
 
 
 def chemdf(y, M, k_dict):
-    """Drop-in for chem_funs.chemdf(y, M, k).
+    """Compute dn/dt from chemistry.
 
     y      : (nz, ni) numpy array
     M      : (nz,)    numpy array
@@ -377,10 +388,9 @@ def chem_jac_blocks(y, M, k_dict):
 
 
 def neg_achemjac(y, M, k_dict):
-    """Drop-in for chem_funs.neg_symjac(y, M, k).
+    """Return the negative chemistry Jacobian as a dense (ni*nz, ni*nz) NumPy array.
 
-    Returns the *negative* chemistry Jacobian as a dense (ni*nz, ni*nz)
-    NumPy array (block-diagonal; diffusion coupling added by the caller).
+    Block-diagonal; diffusion coupling is added by the caller.
     Backend selected by USE_JAX_CHEM.
     """
     return _scipy_block_diag(*(-chem_jac_blocks(y, M, k_dict)))
@@ -448,6 +458,51 @@ def generate_numpy_section(chem_dict, reactions, ni, idx_to_name):
 
 
 # ---------------------------------------------------------------------------
+# Gibbs equilibrium-constant section generator
+# ---------------------------------------------------------------------------
+
+def generate_gibbs_section(reactions, gibbs_text_path):
+    """Generate thermodynamic data block and Gibbs(i, T) equilibrium-constant function."""
+    out = []
+    out.append('\n\n')
+    out.append('# ' + '-'*75 + '\n')
+    out.append('# Thermodynamic functions (NASA-9 polynomials)\n')
+    out.append('# Included verbatim from: ' + gibbs_text_path + '\n')
+    out.append('# ' + '-'*75 + '\n\n')
+
+    with open(gibbs_text_path) as f:
+        out.append(f.read())
+
+    out.append('\n\n')
+    out.append('def Gibbs(i, T):\n')
+    out.append('    """Return K_eq for forward reaction i at temperature T.\n\n')
+    out.append('    Derived from NASA-9 Gibbs free energies; units consistent with rate coefficients.\n')
+    out.append('    """\n')
+    out.append('    G = {}\n')
+
+    for j, reac, prod, _rxn_str in reactions:
+        reac_noM = [(stoi, name) for stoi, name in reac if name != 'M']
+        prod_noM = [(stoi, name) for stoi, name in prod if name != 'M']
+        reac_num = sum(stoi for stoi, _ in reac_noM)
+        prod_num = sum(stoi for stoi, _ in prod_noM)
+
+        expr = 'np.exp( -('
+        for stoi, name in reac_noM:
+            expr += f"-{stoi}*gibbs_sp('{name}',T)"
+        for stoi, name in prod_noM:
+            expr += f"+{stoi}*gibbs_sp('{name}',T)"
+        expr += ' ) )'
+        if prod_num - reac_num != 0:
+            expr += f'*(corr*T)**{reac_num - prod_num}'
+
+        out.append(f'    G[{j}] = lambda T: {expr}\n')
+
+    out.append('    return G[i](T)\n')
+
+    return ''.join(out)
+
+
+# ---------------------------------------------------------------------------
 # Main generator
 # ---------------------------------------------------------------------------
 
@@ -456,6 +511,7 @@ def generate(chem_dict, reactions, ofname):
     nr = 2 * len(reactions)
     idx_to_name = {v: k for k, v in chem_dict.items()}
     sp_terms = build_species_terms(chem_dict, reactions)
+    spec_list = [idx_to_name[i] for i in range(ni)]
 
     out = []
     out.append(_HEADER.format(
@@ -463,6 +519,7 @@ def generate(chem_dict, reactions, ofname):
         ni=ni,
         nr=nr,
         ni_1=ni - 1,
+        spec_list=spec_list,
     ))
 
     # JAX _chemdf_single body (unchanged — uses y[idx] single-layer indexing)
@@ -480,9 +537,10 @@ def generate(chem_dict, reactions, ofname):
                 suffix = ',' if is_last else ''
                 out.append(f'{INDENT}{term}{suffix}  # R{j}: {rxn_str}\n')
 
-    # Close _chemdf_single, emit NumPy section, then JAX infrastructure + APIs
+    # Close _chemdf_single, emit NumPy section, Gibbs, then JAX infrastructure + APIs
     out.append(_CHEMDF_CLOSE)
     out.append(generate_numpy_section(chem_dict, reactions, ni, idx_to_name))
+    out.append(generate_gibbs_section(reactions, vulcan_cfg.gibbs_text))
     out.append(_POSTAMBLE)
 
     content = ''.join(out)
