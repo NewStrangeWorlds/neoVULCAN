@@ -115,9 +115,9 @@ class Integration:
                 atm = self.update_phi_esc(var, atm)
 
             if vulcan_cfg.use_condense:
-                var.y[:, atm.gas_indx] = np.vstack(atm.n_0) * var.ymix[:, atm.gas_indx]
+                var.y[:, atm.gas_indx] = atm.n_0[:, np.newaxis] * var.ymix[:, atm.gas_indx]
             else:
-                var.y = np.vstack(atm.n_0) * var.ymix
+                var.y = atm.n_0[:, np.newaxis] * var.ymix
 
             var = self.f_dy(var, para)
             var, para = self.save_step(var, para)
@@ -230,7 +230,7 @@ class Integration:
         # Don't check more than vulcan_cfg.conv_step (1000) steps back 
         indx = max(para.count-vulcan_cfg.conv_step, indx)
         
-        longdy = np.abs((y_time[count-1] - y_time[indx])/np.vstack(atm.n_0))
+        longdy = np.abs((y_time[count-1] - y_time[indx])/atm.n_0[:, np.newaxis])
         longdy[ymix < mtol_conv] = 0
         longdy[y < atol] = 0
         

@@ -9,6 +9,7 @@ atom_list = ['H', 'O', 'P',  'He']
 #network = 'thermo/SNCHO_full_photo_network.txt'
 
 network = 'thermo/PHO_full_photo_network.txt'
+fastchem_dir = 'fastchem_input'
 use_lowT_limit_rates = False
 gibbs_text = 'thermo/gibbs_text.txt' # (all the nasa9 files must be placed in the folder: thermo/NASA9/)
 cross_folder = 'thermo/photo_cross/'

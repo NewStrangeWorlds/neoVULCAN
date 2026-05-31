@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from numpy import polynomial
 import scipy
@@ -78,7 +79,7 @@ class InitialAbun(object):
     def ini_fc(self, data_var, data_atm):
         # reading-in the default elemental abundances from Lodders 2009
         # depending on including ion or not (whether there is e- in the fastchem elemental abundance dat)
-        solar_ele = 'fastchem_input/element_abundances/lodders_2009.dat'
+        solar_ele = os.path.join(vulcan_cfg.fastchem_dir, 'element_abundances', 'lodders_2009.dat')
 
         with open(solar_ele ,'r') as f:
             new_str = ""
@@ -120,12 +121,11 @@ class InitialAbun(object):
                         new_str += line
 
             # make the new elemental abundance file
-            with open('fastchem_input/element_abundances/element_abundances_vulcan.dat', 'w') as f: f.write(new_str)
+            with open(os.path.join(vulcan_cfg.fastchem_dir, 'element_abundances', 'element_abundances_vulcan.dat'), 'w') as f: f.write(new_str)
 
-        logK_file = ('fastchem_input/logK/logK_vulcan_ion.dat'
-                     if vulcan_cfg.use_ion
-                     else 'fastchem_input/logK/logK_vulcan.dat')
-        elem_file = 'fastchem_input/element_abundances/element_abundances_vulcan.dat'
+        logK_file = os.path.join(vulcan_cfg.fastchem_dir, 'logK',
+                                 'logK_vulcan_ion.dat' if vulcan_cfg.use_ion else 'logK_vulcan.dat')
+        elem_file = os.path.join(vulcan_cfg.fastchem_dir, 'element_abundances', 'element_abundances_vulcan.dat')
 
         fc = pyfastchem.FastChem(elem_file, logK_file, 0)
 

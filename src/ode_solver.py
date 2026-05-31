@@ -168,16 +168,16 @@ class ODESolver:
         if Ai is None:
             tmp0 = A[0]*y[0] + B[0]*y[1]
             tmp1 = np.ndarray.flatten(
-                np.vstack(A[1:nz-1])*y[1:nz-1]
-                + np.vstack(B[1:nz-1])*y[2:nz]
-                + np.vstack(C[1:nz-1])*y[0:nz-2])
+                A[1:nz-1, np.newaxis]*y[1:nz-1]
+                + B[1:nz-1, np.newaxis]*y[2:nz]
+                + C[1:nz-1, np.newaxis]*y[0:nz-2])
             tmp2 = A[-1]*y[-1] + C[-1]*y[-2]
         else:
             tmp0 = (A[0]+Ai[0])*y[0] + (B[0]+Bi[0])*y[1]
             tmp1 = np.ndarray.flatten(
-                np.vstack(A[1:nz-1])*y[1:nz-1]
-                + np.vstack(B[1:nz-1])*y[2:nz]
-                + np.vstack(C[1:nz-1])*y[0:nz-2])
+                A[1:nz-1, np.newaxis]*y[1:nz-1]
+                + B[1:nz-1, np.newaxis]*y[2:nz]
+                + C[1:nz-1, np.newaxis]*y[0:nz-2])
             tmp1 += np.ndarray.flatten(
                 Ai[1:nz-1]*y[1:nz-1]
                 + Bi[1:nz-1]*y[2:nz]
@@ -224,9 +224,9 @@ class ODESolver:
         """Apply diffusion-limited escape correction to top-layer diagonal."""
         diff_lim = np.zeros(ni)
         for sp in vulcan_cfg.diff_esc:
-            if y[-1, species.index(sp)] > 0:
-                diff_lim[species.index(sp)] += (atm.top_flux[species.index(sp)]
-                                                 / y[-1, species.index(sp)])
+            i = species.index(sp)
+            if y[-1, i] > 0:
+                diff_lim[i] += atm.top_flux[i] / y[-1, i]
         idx_top = np.arange((nz-1)*ni, nz*ni)
         dfdy[idx_top, idx_top] -= diff_lim
 
@@ -300,138 +300,6 @@ class ODESolver:
         return self._apply_flux_bcs(diff, y, atm)
         
         
-    def jac_tot(self, var, atm):
-        """
-        jacobian matrix for dn/dt + dphi/dz = P - L (including molecular diffusion)
-        zero-flux BC:  1st derivitive of y is zero
-        """
-        
-        y = var.y
-        if vulcan_cfg.non_gas_sp:
-            ysum = np.sum(y[:,atm.gas_indx], axis=1)
-        else: ysum = np.sum(y, axis=1)
-        dzi   = atm.dzi
-        Kzz   = atm.Kzz
-        Dzz   = atm.Dzz
-        vz    = atm.vz
-        alpha = atm.alpha
-        Tco   = atm.Tco
-        ms    = atm.ms
-        g     = atm.g
-        Ti    = atm.Ti
-        Hpi   = atm.Hpi
-
-        dfdy = achemjac(y, atm.M, var.k)
-        j_indx = []
-        
-        for j in range(nz):
-            j_indx.append( np.arange(j*ni,j*ni+ni) )
-
-        for j in range(1,nz-1): 
-            # excluding the buttom and the top cell
-            # at j level consists of ni species
-            dz_ave = 0.5*(dzi[j-1] + dzi[j]) 
-            dfdy[j_indx[j], j_indx[j]] +=  -1./dz_ave*( Kzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/2. + Kzz[j-1]/dzi[j-1]*(ysum[j-1]+ysum[j])/2. ) /ysum[j] -( (vz[j]>0)*vz[j] - (vz[j-1]<0)*vz[j-1] )/dz_ave  
-            dfdy[j_indx[j], j_indx[j+1]] += 1./dz_ave*( Kzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/(2.*ysum[j+1]) ) -( (vz[j]<0)*vz[j] )/dz_ave
-            dfdy[j_indx[j], j_indx[j-1]] += 1./dz_ave*( Kzz[j-1]/dzi[j-1]*(ysum[j-1]+ysum[j])/(2.*ysum[j-1]) ) +( (vz[j-1]>0)*vz[j-1] )/dz_ave
-            
-            # [j_indx[j], j_indx[j]] has size ni*ni
-            dfdy[j_indx[j], j_indx[j]] +=  -1./dz_ave*( Dzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/2. + Dzz[j-1]/dzi[j-1]*(ysum[j-1]+ysum[j])/2. ) /ysum[j]\
-            +1./(2.*dz_ave)*( Dzz[j]*(-1./Hpi[j]+ms*g[j]/(Navo*kb*Ti[j])+alpha/Ti[j]*(Tco[j+1]-Tco[j])/dzi[j] ) \
-            - Dzz[j-1]*(-1./Hpi[j-1]+ms*g[j]/(Navo*kb*Ti[j-1])+alpha/Ti[j-1]*(Tco[j]-Tco[j-1])/dzi[j-1] ) )
-            dfdy[j_indx[j], j_indx[j+1]] += 1./dz_ave*( Dzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/(2.*ysum[j+1]) ) \
-            +1./(2.*dz_ave)* Dzz[j]*(-1./Hpi[j]+ms*g[j+1]/(Navo*kb*Ti[j])+alpha/Ti[j]*(Tco[j+1]-Tco[j])/dzi[j] ) 
-            dfdy[j_indx[j], j_indx[j-1]] += 1./dz_ave*( Dzz[j-1]/dzi[j-1]*(ysum[j-1]+ysum[j])/(2.*ysum[j-1]) ) \
-            -1./(2.*dz_ave)* Dzz[j-1]*(-1./Hpi[j-1]+ms*g[j-1]/(Navo*kb*Ti[j-1])+alpha/Ti[j-1]*(Tco[j]-Tco[j-1])/dzi[j-1] )
-
-              
-        dfdy[j_indx[0], j_indx[0]] += -1./(dzi[0])*(Kzz[0]/dzi[0]) * (ysum[1]+ysum[0])/(2.*ysum[0]) -( (vz[0]>0)*vz[0] )/dzi[0]
-        dfdy[j_indx[0], j_indx[0]] += -1./(dzi[0])*(Dzz[0]/dzi[0]) * (ysum[1]+ysum[0])/(2.*ysum[0]) \
-        +1./(dzi[0])* Dzz[0]/2.*(-1./Hpi[0]+ms*g[0]/(Navo*kb*Ti[0])+alpha/Ti[0]*(Tco[1]-Tco[0])/dzi[0] ) 
-        # deposition velocity
-        if vulcan_cfg.use_botflux: dfdy[j_indx[0], j_indx[0]] += -1.*atm.bot_vdep /dzi[0]
-        
-        dfdy[j_indx[0], j_indx[1]] += 1./(dzi[0])*(Kzz[0]/dzi[0]) * (ysum[1]+ysum[0])/(2.*ysum[1]) -( (vz[0]<0)*vz[0] )/dzi[0] 
-        dfdy[j_indx[0], j_indx[1]] += 1./(dzi[0])*(Dzz[0]/dzi[0]) * (ysum[1]+ysum[0])/(2.*ysum[1]) \
-        +1./(dzi[0])* Dzz[0]/2.*(-1./Hpi[0]+ms*g[0]/(Navo*kb*Ti[0])+alpha/Ti[0]*(Tco[1]-Tco[0])/dzi[0] )
-
-        dfdy[j_indx[nz-1], j_indx[nz-1]] += -1./(dzi[nz-2])*(Kzz[nz-2]/dzi[nz-2]) *(ysum[(nz-1)-1]+ysum[nz-1])/(2.*ysum[nz-1]) +( (vz[-1]<0)*vz[-1] )/dzi[-1] 
-        dfdy[j_indx[nz-1], j_indx[nz-1]] += -1./(dzi[nz-2])*(Dzz[nz-2]/dzi[nz-2]) *(ysum[nz-1]+ysum[nz-2])/(2.*ysum[nz-1]) \
-        - 1./(dzi[-1])* Dzz[-1]/2.*(-1./Hpi[-1]+ms*g[-1]/(Navo*kb*Ti[-1])+alpha/Ti[-1]*(Tco[-1]-Tco[-2])/dzi[-1] )
-        dfdy[j_indx[nz-1], j_indx[(nz-1)-1]] += 1./(dzi[nz-2])*(Kzz[nz-2]/dzi[nz-2])* (ysum[(nz-1)-1]+ysum[nz-1])/(2.*ysum[(nz-1)-1]) +( (vz[-1]>0)*vz[-1] )/dzi[-1]  
-        dfdy[j_indx[nz-1], j_indx[(nz-1)-1]] += 1./(dzi[nz-2])*(Dzz[nz-2]/dzi[nz-2]) *(ysum[nz-1]+ysum[nz-2])/(2.*ysum[(nz-1)-1]) \
-                -1./(dzi[-1])* Dzz[-1]/2.*(-1./Hpi[-1]+ms*g[-1]/(Navo*kb*Ti[-1])+alpha/Ti[-1]*(Tco[-1]-Tco[-2])/dzi[-1] )
-
-        return dfdy
-
-    def lhs_jac_tot(self, var, atm):      
-        """
-        directly constructing lhs = 1./(r*h)*sparse.identity(ni*nz) - dfdy
-        jacobian matrix for dn/dt + dphi/dz = P - L (including molecular diffusion)
-        zero-flux BC:  1st derivitive of y is zero
-        """
-        y = var.y
-        if vulcan_cfg.use_condense:
-            ysum = np.sum(y[:,atm.gas_indx], axis=1)
-        else:
-            ysum = np.sum(y, axis=1)
-        dzi   = atm.dzi
-        Kzz   = atm.Kzz
-        Dzz   = atm.Dzz
-        vz    = atm.vz
-        alpha = atm.alpha
-        Tco   = atm.Tco
-        ms    = atm.ms
-        g     = atm.g
-        Ti    = atm.Ti
-        Hpi   = atm.Hpi
-
-        # c0 = 1./(r*h) where r = 1. + 1./2.**0.5
-        r = 1. + 1./2.**0.5
-        c0 = 1./(r*var.dt)
-        dfdy = neg_achemjac(y, atm.M, var.k)
-        np.fill_diagonal(dfdy, c0 + np.diag(dfdy)) 
-        j_indx = []
-        
-        for j in range(nz):
-            j_indx.append( np.arange(j*ni,j*ni+ni) )
-
-        for j in range(1,nz-1):
-            # excluding the buttom and the top cell
-            # at j level consists of ni species
-            dz_ave = 0.5*(dzi[j-1] + dzi[j])
-            dfdy[j_indx[j], j_indx[j]] -=  -1./dz_ave*( Kzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/2. + Kzz[j-1]/dzi[j-1]*(ysum[j-1]+ysum[j])/2. ) /ysum[j] -( (vz[j]>0)*vz[j] - (vz[j-1]<0)*vz[j-1] )/dz_ave
-            dfdy[j_indx[j], j_indx[j+1]] -= 1./dz_ave*( Kzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/(2.*ysum[j+1]) ) -( (vz[j]<0)*vz[j] )/dz_ave
-            dfdy[j_indx[j], j_indx[j-1]] -= 1./dz_ave*( Kzz[j-1]/dzi[j-1]*(ysum[j-1]+ysum[j])/(2.*ysum[j-1]) ) +( (vz[j-1]>0)*vz[j-1] )/dz_ave
-
-            # [j_indx[j], j_indx[j]] has size ni*ni
-            dfdy[j_indx[j], j_indx[j]] -=  -1./dz_ave*( Dzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/2. + Dzz[j-1]/dzi[j-1]*(ysum[j-1]+ysum[j])/2. ) /ysum[j]\
-            +1./(2.*dz_ave)*( Dzz[j]*(-1./Hpi[j]+ms*g[j]/(Navo*kb*Ti[j])+alpha/Ti[j]*(Tco[j+1]-Tco[j])/dzi[j] ) \
-            - Dzz[j-1]*(-1./Hpi[j-1]+ms*g[j]/(Navo*kb*Ti[j-1])+alpha/Ti[j-1]*(Tco[j]-Tco[j-1])/dzi[j-1] ) )
-            dfdy[j_indx[j], j_indx[j+1]] -= 1./dz_ave*( Dzz[j]/dzi[j]*(ysum[j+1]+ysum[j])/(2.*ysum[j+1]) ) \
-            +1./(2.*dz_ave)* Dzz[j]*(-1./Hpi[j]+ms*g[j+1]/(Navo*kb*Ti[j])+alpha/Ti[j]*(Tco[j+1]-Tco[j])/dzi[j] )
-            dfdy[j_indx[j], j_indx[j-1]] -= 1./dz_ave*( Dzz[j-1]/dzi[j-1]*(ysum[j-1]+ysum[j])/(2.*ysum[j-1]) ) \
-            -1./(2.*dz_ave)* Dzz[j-1]*(-1./Hpi[j-1]+ms*g[j-1]/(Navo*kb*Ti[j-1])+alpha/Ti[j-1]*(Tco[j]-Tco[j-1])/dzi[j-1] )
-    
-        dfdy[j_indx[0], j_indx[0]] -= -1./(dzi[0])*(Kzz[0]/dzi[0]) * (ysum[1]+ysum[0])/(2.*ysum[0]) -( (vz[0]>0)*vz[0] )/dzi[0]
-        dfdy[j_indx[0], j_indx[0]] -= -1./(dzi[0])*(Dzz[0]/dzi[0]) * (ysum[1]+ysum[0])/(2.*ysum[0]) \
-        +1./(dzi[0])* Dzz[0]/2.*(-1./Hpi[0]+ms*g[0]/(Navo*kb*Ti[0])+alpha/Ti[0]*(Tco[1]-Tco[0])/dzi[0] ) 
-        # deposition velocity
-        if vulcan_cfg.use_botflux: dfdy[j_indx[0], j_indx[0]] -= -1.*atm.bot_vdep /dzi[0]
-        
-        dfdy[j_indx[0], j_indx[1]] -= 1./(dzi[0])*(Kzz[0]/dzi[0]) * (ysum[1]+ysum[0])/(2.*ysum[1]) -( (vz[0]<0)*vz[0] )/dzi[0]
-        dfdy[j_indx[0], j_indx[1]] -= 1./(dzi[0])*(Dzz[0]/dzi[0]) * (ysum[1]+ysum[0])/(2.*ysum[1]) \
-        +1./(dzi[0])* Dzz[0]/2.*(-1./Hpi[0]+ms*g[0]/(Navo*kb*Ti[0])+alpha/Ti[0]*(Tco[1]-Tco[0])/dzi[0] )
-
-        dfdy[j_indx[nz-1], j_indx[nz-1]] -= -1./(dzi[nz-2])*(Kzz[nz-2]/dzi[nz-2]) *(ysum[(nz-1)-1]+ysum[nz-1])/(2.*ysum[nz-1]) +( (vz[-1]<0)*vz[-1] )/dzi[-1]  
-        dfdy[j_indx[nz-1], j_indx[nz-1]] -= -1./(dzi[nz-2])*(Dzz[nz-2]/dzi[nz-2]) *(ysum[nz-1]+ysum[nz-2])/(2.*ysum[nz-1]) \
-        - 1./(dzi[-1])* Dzz[-1]/2.*(-1./Hpi[-1]+ms*g[-1]/(Navo*kb*Ti[-1])+alpha/Ti[-1]*(Tco[-1]-Tco[-2])/dzi[-1] )
-        dfdy[j_indx[nz-1], j_indx[(nz-1)-1]] -= 1./(dzi[nz-2])*(Kzz[nz-2]/dzi[nz-2])* (ysum[(nz-1)-1]+ysum[nz-1])/(2.*ysum[(nz-1)-1]) +( (vz[-1]>0)*vz[-1] )/dzi[-1]  
-        dfdy[j_indx[nz-1], j_indx[(nz-1)-1]] -= 1./(dzi[nz-2])*(Dzz[nz-2]/dzi[nz-2]) *(ysum[nz-1]+ysum[nz-2])/(2.*ysum[(nz-1)-1]) \
-                -1./(dzi[-1])* Dzz[-1]/2.*(-1./Hpi[-1]+ms*g[-1]/(Navo*kb*Ti[-1])+alpha/Ti[-1]*(Tco[-1]-Tco[-2])/dzi[-1] )
-
-        return dfdy
-
     def lhs_jac_banded(self, var, atm):
         """Build LHS = 1/(r*h)*I - dfdy directly in scipy banded format.
 
@@ -732,9 +600,9 @@ class ODESolver:
         var = self.loss(var)
 
         if vulcan_cfg.non_gas_sp:
-            var.y, var.ymix = y, var.y / np.vstack(np.sum(var.y[:, atm.gas_indx], axis=1))
+            var.y, var.ymix = y, var.y / np.sum(var.y[:, atm.gas_indx], axis=1)[:, np.newaxis]
         else:
-            var.y, var.ymix = y, y / np.vstack(np.sum(y, axis=1))
+            var.y, var.ymix = y, y / np.sum(y, axis=1)[:, np.newaxis]
 
         return var, para
         
