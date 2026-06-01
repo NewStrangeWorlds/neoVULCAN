@@ -42,37 +42,62 @@ class TwoStreamRT:
         var.tau.fill(0)
         absp_sp = sorted(set(var.photo_sp) | set(var.ion_sp))
 
-        nbins = len(var.bins)
-        layer_tau = np.zeros((nz, nbins))
+        # Cache stacked cross-section arrays for the matmul.  Split into
+        # constant-cross species (cross_sp shape (nbins,)) and T-dependent
+        # species (cross_T_sp shape (nz, nbins)) which can't be stacked the
+        # same way.
+        tau_key = (tuple(absp_sp), tuple(sorted(vulcan_cfg.T_cross_sp)),
+                   tuple(vulcan_cfg.scat_sp))
+        if getattr(self, '_tau_cache_key', None) != tau_key:
+            sp_const = [sp for sp in absp_sp if sp not in vulcan_cfg.T_cross_sp]
+            sp_T     = [sp for sp in absp_sp if sp in vulcan_cfg.T_cross_sp]
+            self._tau_const_idx   = np.array([species.index(sp) for sp in sp_const])
+            self._tau_const_cross = (np.stack([var.cross[sp] for sp in sp_const])
+                                     if sp_const else None)         # (n_c, nbins)
+            self._tau_T_specs     = [(species.index(sp), sp) for sp in sp_T]
+            self._tau_scat_idx    = np.array([species.index(sp) for sp in vulcan_cfg.scat_sp])
+            self._tau_scat_cross  = (np.stack([var.cross_scat[sp] for sp in vulcan_cfg.scat_sp])
+                                     if vulcan_cfg.scat_sp else None)
+            self._tau_cache_key   = tau_key
 
-        for sp in absp_sp:
-            idx = species.index(sp)
-            if sp in vulcan_cfg.T_cross_sp:
-                layer_tau += var.y[:, idx, np.newaxis] * atm.dz[:, np.newaxis] * var.cross_T[sp]
-            else:
-                layer_tau += var.y[:, idx, np.newaxis] * atm.dz[:, np.newaxis] * var.cross[sp]
+        # Constant-cross absorbers + scattering — one matmul each.
+        if self._tau_const_cross is not None:
+            layer_tau = atm.dz[:, None] * (var.y[:, self._tau_const_idx] @ self._tau_const_cross)
+        else:
+            layer_tau = np.zeros((nz, len(var.bins)))
+        if self._tau_scat_cross is not None:
+            layer_tau += atm.dz[:, None] * (var.y[:, self._tau_scat_idx] @ self._tau_scat_cross)
 
-        for sp in vulcan_cfg.scat_sp:
-            idx = species.index(sp)
-            layer_tau += var.y[:, idx, np.newaxis] * atm.dz[:, np.newaxis] * var.cross_scat[sp]
+        # T-dependent absorbers: cross is per-layer per-species; loop kept.
+        for idx, sp in self._tau_T_specs:
+            layer_tau += var.y[:, idx, np.newaxis] * atm.dz[:, np.newaxis] * var.cross_T[sp]
 
         # cumulative optical depth from top (tau[nz]=0 boundary stays 0 from fill)
         var.tau[:-1] = np.cumsum(layer_tau[::-1], axis=0)[::-1]
 
     def _compute_flux(self, var, atm):
+        # Stacked cross-section arrays for the species-loop matmul.  Rebuilt
+        # only if the species list changes (effectively once per run).  Key
+        # on the sorted species-name tuple so rebuilding `var` (e.g. in
+        # tests) doesn't invalidate the cache.
+        photo_sp_key = tuple(sorted(var.photo_sp))
+        if getattr(self, '_photo_cache_key', None) != photo_sp_key:
+            sp_sorted = sorted(var.photo_sp, key=species.index)
+            self._photo_idx        = np.array([species.index(sp) for sp in sp_sorted])
+            self._photo_cross_stk  = np.stack([var.cross[sp] for sp in sp_sorted])  # (n_p, nbins)
+            self._scat_idx         = np.array([species.index(sp) for sp in vulcan_cfg.scat_sp])
+            self._scat_cross_stk   = np.stack([var.cross_scat[sp] for sp in vulcan_cfg.scat_sp])
+            self._photo_cache_key  = photo_sp_key
+
         mu_ang = -1. * np.cos(vulcan_cfg.sl_angle)
         edd = vulcan_cfg.edd
         tau = var.tau
 
         delta_tau = tau[:-1] - tau[1:]
 
-        nbins = len(var.bins)
-        tot_abs  = np.zeros((nz, nbins))
-        tot_scat = np.zeros((nz, nbins))
-        for sp in var.photo_sp:
-            tot_abs += var.ymix[:, species.index(sp), np.newaxis] * var.cross[sp]
-        for sp in vulcan_cfg.scat_sp:
-            tot_scat += var.ymix[:, species.index(sp), np.newaxis] * var.cross_scat[sp]
+        # Species accumulation as two matmuls instead of two Python loops.
+        tot_abs  = var.ymix[:, self._photo_idx] @ self._photo_cross_stk   # (nz, nbins)
+        tot_scat = var.ymix[:, self._scat_idx]  @ self._scat_cross_stk
 
         w0 = tot_scat / (tot_abs + tot_scat)
         w0 = np.nan_to_num(w0)
@@ -141,29 +166,103 @@ class TwoStreamRT:
                     + flux[:, -1]  * cross[:, -1]) * dbin2
         return val
 
+    def _trapezoidal_weights(self, nbins, idx, dbin1, dbin2):
+        """Build the per-bin weight vector that turns ``sum(w·flux·cross)``
+        into the same two-region trapezoidal integral as ``_spectral_integral``.
+
+        Region 1 (bins 0..idx-1, spacing dbin1): trapezoidal endpoints halved.
+        Region 2 (bins idx..nbins-1, spacing dbin2): trapezoidal endpoints halved.
+        """
+        w = np.empty(nbins)
+        w[:idx]  = dbin1
+        w[0]     = 0.5 * dbin1
+        w[idx-1] = 0.5 * dbin1
+        w[idx:]  = dbin2
+        w[idx]   = 0.5 * dbin2
+        w[-1]    = 0.5 * dbin2
+        return w
+
     def _compute_J(self, var, atm):
         flux         = var.aflux
-        diss_cross   = var.cross_J
-        diss_cross_T = var.cross_J_T
-        n_branch     = var.n_branch
         idx          = var.sflux_din12_indx
+        n_branch     = var.n_branch
 
-        var.J_sp = {(sp, bn): np.zeros(nz)
-                    for sp in var.photo_sp
-                    for bn in range(n_branch[sp] + 1)}
+        # Cache stacked cross-section arrays, the trapezoidal weight vector,
+        # and the flat list of (sp, nbr) keys, all keyed on inputs that only
+        # change at setup.
+        j_key = (tuple(sorted(var.photo_sp)),
+                 tuple(sorted(vulcan_cfg.T_cross_sp)),
+                 int(idx), var.dbin1, var.dbin2)
+        if getattr(self, '_J_cache_key', None) != j_key:
+            nbins   = len(var.bins)
+            weights = self._trapezoidal_weights(nbins, idx, var.dbin1, var.dbin2)
+            const_keys, T_keys = [], []
+            for sp in sorted(var.photo_sp, key=species.index):
+                for nbr in range(1, n_branch[sp] + 1):
+                    if sp in vulcan_cfg.T_cross_sp:
+                        T_keys.append((sp, nbr))
+                    else:
+                        const_keys.append((sp, nbr))
+            # Stack const cross-sections AND fold weights into them so the
+            # hot path is one (n_const, nbins) @ (nbins, nz) matmul.
+            if const_keys:
+                cross_J_w = np.stack([var.cross_J[k] for k in const_keys]) * weights
+            else:
+                cross_J_w = None                                   # (n_c, nbins)
+            # T-dep stack: (n_T, nz, nbins); weights folded.
+            if T_keys:
+                cross_JT_w = np.stack([var.cross_J_T[k] for k in T_keys]) * weights
+            else:
+                cross_JT_w = None
+            # Pre-compute the active species set for J_sp[(sp, 0)] sums.
+            sp_to_branches = {}
+            for k in const_keys + T_keys:
+                sp_to_branches.setdefault(k[0], []).append(k)
+            self._J_const_keys   = const_keys
+            self._J_T_keys       = T_keys
+            self._J_cross_w      = cross_J_w
+            self._J_cross_T_w    = cross_JT_w
+            self._J_sp_branches  = sp_to_branches
+            self._J_zero_template = np.zeros(nz)
+            self._J_cache_key    = j_key
 
+        # Const-cross integrals: one matmul gives all const branches at once.
+        if self._J_cross_w is not None:
+            val_const = self._J_cross_w @ flux.T                  # (n_c, nz)
+        else:
+            val_const = np.empty((0, nz))
+        # T-dep integrals: einsum 's,nb,b->s,n' fold per (species, layer).
+        if self._J_cross_T_w is not None:
+            val_T = np.einsum('snb,nb->sn', self._J_cross_T_w, flux)
+        else:
+            val_T = np.empty((0, nz))
+
+        # Scatter into var.J_sp and var.k.  Initialise per-species sums
+        # (the (sp, 0) entries) once; per-branch entries are direct
+        # assignments.
+        var.J_sp = {}
         for sp in var.photo_sp:
-            for nbr in range(1, n_branch[sp] + 1):
-                if sp in vulcan_cfg.T_cross_sp:
-                    cross = diss_cross_T[(sp, nbr)]
-                else:
-                    cross = diss_cross[(sp, nbr)][np.newaxis]
-                val = self._spectral_integral(flux, cross, idx, var.dbin1, var.dbin2)
+            var.J_sp[(sp, 0)] = np.zeros(nz)
 
-                var.J_sp[(sp, nbr)]  = val
-                var.J_sp[(sp, 0)]   += val
-                if var.pho_rate_index[(sp, nbr)] not in vulcan_cfg.remove_list:
-                    var.k[var.pho_rate_index[(sp, nbr)]] = val * vulcan_cfg.f_diurnal
+        f_diurnal   = vulcan_cfg.f_diurnal
+        remove_list = vulcan_cfg.remove_list
+        pho_rate_index = var.pho_rate_index
+        k_arr = var.k
+
+        for i, (sp, nbr) in enumerate(self._J_const_keys):
+            v = val_const[i]
+            var.J_sp[(sp, nbr)]  = v
+            var.J_sp[(sp, 0)]   += v
+            ridx = pho_rate_index[(sp, nbr)]
+            if ridx not in remove_list:
+                k_arr[ridx] = v * f_diurnal
+        for i, (sp, nbr) in enumerate(self._J_T_keys):
+            v = val_T[i]
+            var.J_sp[(sp, nbr)]  = v
+            var.J_sp[(sp, 0)]   += v
+            ridx = pho_rate_index[(sp, nbr)]
+            if ridx not in remove_list:
+                k_arr[ridx] = v * f_diurnal
 
     def _compute_Jion(self, var, atm):
         flux      = var.aflux
