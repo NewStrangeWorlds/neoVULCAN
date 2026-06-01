@@ -8,13 +8,20 @@ from phy_const import kb, Navo
 from vulcan_cfg import nz
 
 from chemistry_jax import neg_achemjac, chem_jac_blocks
+from jacobian_jax import _lhs_jac_banded_kernel, _lhs_jac_banded_logy_kernel
 from radiative_transfer import TwoStreamRT
+import jax.numpy as jnp
 
 compo = build_atm.compo
 compo_row = build_atm.compo_row
 species = chem_funs.spec_list
 
 class ODESolver:
+
+    # Order of the embedded error estimator used by the adaptive step-size
+    # controller.  Ros2 keeps the inherited value of 2; higher-order
+    # integrators (e.g. Rodas3) override this in their own class.
+    error_order = 2
 
     def __init__(self):
         self.mtol = vulcan_cfg.mtol
@@ -28,6 +35,23 @@ class ODESolver:
         self.fix_sp_bot_index = [species.index(sp) for sp in vulcan_cfg.use_fix_sp_bot.keys()]
         self.fix_sp_bot_mix = np.array([vulcan_cfg.use_fix_sp_bot[sp] for sp in vulcan_cfg.use_fix_sp_bot.keys()])
         self.rt = TwoStreamRT()
+
+        # Precompute the gas-species mask used by the JAX banded Jacobian.
+        # 1.0 for gas species, 0.0 for non-gas — allows ysum to be computed
+        # as (y * mask).sum() with no conditional indexing inside the JIT.
+        gas_mask = np.ones(ni)
+        if vulcan_cfg.use_condense:
+            gas_mask[:] = 0.0
+            # gas_indx is built by build_atm; capture it once per solver instance
+            gas_indx = [i for i in range(ni) if species[i] not in self.non_gas_sp]
+            gas_mask[gas_indx] = 1.0
+        self._gas_mask_jax = jnp.asarray(gas_mask)
+        self._use_botflux_flag = jnp.float64(1.0 if vulcan_cfg.use_botflux else 0.0)
+
+        # Cache of JAX-converted atmospheric arrays.  Built lazily on first
+        # use and invalidated by Integration.update_mu_dz via
+        # invalidate_atm_cache().  Cuts ~0.4 ms/step of jnp.asarray overhead.
+        self._atm_jax = None
 
     # -----------------------------------------------------------------------
     # Private helpers shared by all diffdf variants
@@ -255,6 +279,26 @@ class ODESolver:
                                             atm.Ti, atm.Tco, atm.g, atm.ms, atm.alpha)
         diff = self._apply_tridiag(y, A, B, C, Ai, Bi, Ci)
         return self._apply_flux_bcs(diff, y, atm)
+
+    # Clamps for x = log(y) to keep exp(x) inside float64 range while still
+    # accepting large transient log-steps.  See `jacobian_jax._X_FLOOR` /
+    # `_X_CEIL` — kept in sync.
+    X_FLOOR_LOG = -300.0
+    X_CEIL_LOG  =  200.0
+
+    def diffdf_logy(self, x, atm):
+        """Log-space diffusion RHS: diff(exp(x), atm) / exp(x).
+
+        DORMANT INFRASTRUCTURE: paired with
+        ``jacobian_jax._lhs_jac_banded_logy_kernel`` for a log-space
+        integrator path.  Currently not on any code path — the log-space
+        Rosenbrock attempt (Tier 2.2 Phase C) was reverted after
+        discovering the chain rule cancels implicit damping of first-order
+        chemistry loss.  Kept for the next iteration of the stiffness
+        work; see plan file.
+        """
+        y = np.exp(np.clip(x, self.X_FLOOR_LOG, self.X_CEIL_LOG))
+        return self.diffdf(y, atm) / y
             
     def diffdf_vm(self, y, atm):
         """Eddy + molecular diffusion (no thermal term) + vm mean-molecular-velocity advection.
@@ -300,21 +344,232 @@ class ODESolver:
         return self._apply_flux_bcs(diff, y, atm)
         
         
-    def lhs_jac_banded(self, var, atm):
-        """Build LHS = 1/(r*h)*I - dfdy directly in scipy banded format.
+    def _build_atm_jax_cache(self, atm):
+        """Convert atmospheric arrays needed by the JAX Jacobian to JAX once."""
+        bot_vdep = atm.bot_vdep if vulcan_cfg.use_botflux else np.zeros(ni)
+        self._atm_jax = {
+            'M':        jnp.asarray(atm.M),
+            'dzi':      jnp.asarray(atm.dzi),
+            'Kzz':      jnp.asarray(atm.Kzz),
+            'Dzz':      jnp.asarray(atm.Dzz),
+            'vz':       jnp.asarray(atm.vz),
+            'alpha':    jnp.asarray(atm.alpha),
+            'Tco':      jnp.asarray(atm.Tco),
+            'ms':       jnp.asarray(atm.ms),
+            'g':        jnp.asarray(atm.g),
+            'Ti':       jnp.asarray(atm.Ti),
+            'Hpi':      jnp.asarray(atm.Hpi),
+            'bot_vdep': jnp.asarray(bot_vdep),
+        }
 
-        Equivalent to lhs_jac_tot but avoids the 118 MB dense block-diagonal
-        matrix.  Returns (ab, bw) ready for scipy.linalg.solve_banded.
+    def invalidate_atm_cache(self):
+        """Drop the cached JAX atm arrays — call after Integration.update_mu_dz."""
+        self._atm_jax = None
+
+    def lhs_jac_banded(self, var, atm, c0=None):
+        """Build LHS = c0*I - dfdy directly in scipy banded format.
+
+        Delegates the full assembly (chemistry blocks + eddy + molecular
+        diffusion + boundary conditions) to a JIT-compiled JAX kernel
+        ``_lhs_jac_banded_kernel`` to avoid per-step Python overhead.
+        Returns (ab, bw) ready for scipy.linalg.solve_banded.
+
+        ``c0`` is the diagonal coefficient of the W-method LHS.  If not
+        provided, defaults to Ros2's ``1/(r*h)`` with r = 1 + 1/√2.
+        Higher-order Rosenbrock methods (e.g. Rodas3) pass their own
+        ``c0 = 1/(γ*h)`` consistent with the method's γ.
 
         Banded mapping:
           ab[bw + (i-j), j] = dense[i, j]   (scipy convention)
         where rows are layer-major: index iz*ni+sp.
+        """
+        from chemistry_jax import k_dict_to_array
 
-        Three banded rows are active for diffusion:
-          row bw      — same-layer, same-species (diagonal + eddy + mol)
-          row bw-ni   — upper off-diagonal  (layer j coupled to column j+1)
-          row bw+ni   — lower off-diagonal  (layer j coupled to column j-1)
-        Chemistry fills all rows bw±(0..ni-1) via the block fill.
+        if self._atm_jax is None:
+            self._build_atm_jax_cache(atm)
+        a = self._atm_jax
+
+        bw = 2 * ni - 1
+        k_arr = k_dict_to_array(var.k)
+        if c0 is None:
+            r  = 1. + 1./np.sqrt(2.)
+            c0 = 1. / (r * var.dt)
+
+        ab = _lhs_jac_banded_kernel(
+            jnp.asarray(var.y), a['M'], jnp.asarray(k_arr),
+            jnp.float64(c0),
+            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['alpha'], a['Tco'],
+            a['ms'], a['g'], a['Ti'], a['Hpi'],
+            self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
+            nz=nz,
+        )
+        return np.asarray(ab), bw
+
+    def lhs_jac_banded_logy(self, var, atm):
+        """Log-space banded LHS = c0*I - dg/dx where g(x) = f(exp(x))/exp(x).
+
+        DORMANT INFRASTRUCTURE: mirrors :meth:`lhs_jac_banded` but operates
+        on a log-space state ``var.x``.  Currently not on any code path —
+        see ``diffdf_logy`` for context.  Reads ``var.x`` if present,
+        otherwise falls back to ``np.log(np.maximum(var.y, atol))``.
+
+        Caller computes ``diff_logy = diffdf(exp(x), atm)/exp(x)`` once
+        (NumPy) and passes it in for the chain-rule diagonal correction.
+        """
+        from chemistry_jax import k_dict_to_array
+
+        if self._atm_jax is None:
+            self._build_atm_jax_cache(atm)
+        a = self._atm_jax
+
+        bw    = 2 * ni - 1
+        k_arr = k_dict_to_array(var.k)
+        r  = 1. + 1. / np.sqrt(2.)
+        c0 = 1. / (r * var.dt)
+
+        x = var.x if hasattr(var, 'x') else np.log(np.maximum(var.y, self.atol))
+        diff_logy = self.diffdf_logy(x, atm)
+
+        ab = _lhs_jac_banded_logy_kernel(
+            jnp.asarray(x), a['M'], jnp.asarray(k_arr),
+            jnp.float64(c0), jnp.asarray(diff_logy),
+            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['alpha'], a['Tco'],
+            a['ms'], a['g'], a['Ti'], a['Hpi'],
+            self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
+            nz=nz,
+        )
+        return np.asarray(ab), bw
+
+    def lhs_jac_steady(self, var, atm):
+        """Banded -∂F/∂y for the steady-state Newton finisher.
+
+        Same assembly as :meth:`lhs_jac_banded` but with c0 = 0 (no
+        identity contribution).  Returns (ab, bw).
+        """
+        from chemistry_jax import k_dict_to_array
+
+        if self._atm_jax is None:
+            self._build_atm_jax_cache(atm)
+        a = self._atm_jax
+
+        bw = 2 * ni - 1
+        k_arr = k_dict_to_array(var.k)
+        ab = _lhs_jac_banded_kernel(
+            jnp.asarray(var.y), a['M'], jnp.asarray(k_arr),
+            jnp.float64(0.0),
+            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['alpha'], a['Tco'],
+            a['ms'], a['g'], a['Ti'], a['Hpi'],
+            self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
+            nz=nz,
+        )
+        return np.asarray(ab), bw
+
+    def steady_newton(self, var, atm):
+        """Damped Newton iteration on F(y) = chemdf(y) + diffdf(y) = 0.
+
+        Returns (var, success_flag).  On success ``var.y`` holds the
+        converged steady state.  On failure (line search collapses or
+        ``newton_max_iter`` reached without converging) ``var`` is
+        unchanged and the caller falls back to Rosenbrock time-stepping.
+
+        Only the default eddy + molecular-diffusion path is supported
+        (no settling, no vm advection, no use_ion); other configurations
+        return ``success=False`` without attempting Newton.
+        """
+        import scipy.linalg
+
+        if (vulcan_cfg.use_settling or vulcan_cfg.use_vm_mol
+                or vulcan_cfg.use_ion
+                or (vulcan_cfg.use_condense and getattr(vulcan_cfg, 'fix_species', None))):
+            return var, False
+
+        chemdf = chem_funs.chemdf
+        diffdf = self.diffdf
+
+        max_iter   = getattr(vulcan_cfg, 'newton_max_iter', 20)
+        tol        = getattr(vulcan_cfg, 'newton_res_tol',  1e-6)
+        alpha_min  = getattr(vulcan_cfg, 'newton_alpha_min', 1e-3)
+
+        mtol_conv = vulcan_cfg.mtol_conv
+
+        def scaled_res(y_arr, F_arr):
+            """Scaled max-norm residual, mirroring the masking used by
+            Integration.conv: species with mixing ratio below mtol_conv or
+            number density below atol are excluded — their |F|/|y| is
+            dominated by atol floor and is not physically meaningful."""
+            ysum = (y_arr * 1).sum(axis=1, keepdims=True)
+            ymix = y_arr / np.maximum(ysum, 1.0)
+            scale = np.maximum(np.abs(y_arr), self.atol)
+            rel = np.abs(F_arr) / scale
+            rel = np.where(ymix < mtol_conv, 0.0, rel)
+            rel = np.where(y_arr < self.atol, 0.0, rel)
+            return float(np.max(rel))
+
+        y = var.y.copy()
+        F = chemdf(y, atm.M, var.k) + diffdf(y, atm)
+        res  = scaled_res(y, F)
+        res0 = res
+
+        for k_iter in range(max_iter):
+            if res < tol:
+                if vulcan_cfg.use_print_prog:
+                    print(f'  Newton converged in {k_iter} iterations '
+                          f'(scaled res {res0:.2e} → {res:.2e})')
+                var.y = y
+                if vulcan_cfg.non_gas_sp:
+                    var.ymix = var.y / np.sum(var.y[:, atm.gas_indx], axis=1)[:, np.newaxis]
+                else:
+                    var.ymix = var.y / np.sum(var.y, axis=1)[:, np.newaxis]
+                return var, True
+
+            # Newton direction: solve (-J) dy = F  →  dy = -J^{-1} F
+            var.y = y
+            ab, bw = self.lhs_jac_steady(var, atm)
+            try:
+                dy_flat = scipy.linalg.solve_banded((bw, bw), ab, F.flatten())
+            except (np.linalg.LinAlgError, ValueError):
+                if vulcan_cfg.use_print_prog:
+                    print(f'  Newton solve_banded failed at iter {k_iter}, '
+                          f'falling back to Rosenbrock')
+                var.y = y
+                return var, False
+            dy = dy_flat.reshape(y.shape)
+
+            # Damped line search.  Trial is clipped to atol to enforce
+            # positivity by projection (rather than rejecting steps).
+            # Acceptance: scaled max-norm residual decreased.
+            alpha = 1.0
+            accepted = False
+            while alpha > alpha_min:
+                y_trial = np.maximum(y + alpha * dy, self.atol)
+                F_trial = chemdf(y_trial, atm.M, var.k) + diffdf(y_trial, atm)
+                res_trial = scaled_res(y_trial, F_trial)
+                if res_trial < res:
+                    y    = y_trial
+                    F    = F_trial
+                    res  = res_trial
+                    accepted = True
+                    break
+                alpha *= 0.5
+
+            if not accepted:
+                if vulcan_cfg.use_print_prog:
+                    print(f'  Newton line search collapsed at iter {k_iter} '
+                          f'(scaled res={res:.2e}), falling back to Rosenbrock')
+                var.y = y
+                return var, False
+
+        if vulcan_cfg.use_print_prog:
+            print(f'  Newton hit max_iter ({max_iter}) without converging (res={res:.2e})')
+        var.y = y
+        return var, False
+
+    def lhs_jac_banded_numpy(self, var, atm):
+        """Legacy NumPy assembly of the banded LHS Jacobian.
+
+        Kept as a reference and as the fallback used by the unit test that
+        validates ``_lhs_jac_banded_kernel`` element-wise.  Identical math
+        to ``lhs_jac_banded`` but executed entirely in NumPy.
         """
         y = var.y
         if vulcan_cfg.use_condense:
@@ -638,6 +893,12 @@ class ODESolver:
 
         var = self.reset_y(var)
 
+        # The PI controller's derivative term uses the previously-accepted
+        # delta.  After a rejection the local error history is no longer
+        # representative — invalidate so the next accepted step falls back
+        # to pure I-control.
+        para.delta_prev = -1.0
+
         if var.dt < vulcan_cfg.dt_min:
             var.dt = vulcan_cfg.dt_min
             var.y[var.y < 0] = 0.
@@ -645,6 +906,54 @@ class ODESolver:
             return True
 
         return False
+
+    def step_size(self, var, para,
+                  dt_var_min=vulcan_cfg.dt_var_min, dt_var_max=vulcan_cfg.dt_var_max,
+                  dt_min=vulcan_cfg.dt_min, dt_max=vulcan_cfg.dt_max):
+        """Adaptive step-size controller.
+
+        Two controllers, selectable via ``vulcan_cfg.use_pi_controller``:
+
+        * Legacy I-controller (default; reproduces pre-PI behaviour
+          bit-identically):
+              h_new = h · 0.9 · (rtol/δ)^(1/p)
+        * Gustafsson PI controller (1991; see Hairer-Wanner II §IV.2):
+              h_new = h · 0.9 · (rtol/δ)^(α/p) · (δ_prev/δ)^(β/p)
+          with α=0.7, β=0.4.  Falls back to I-control on the first step
+          and after any rejection — both are flagged by
+          ``para.delta_prev < 0`` (set in __init__ and step_reject).
+
+        The integrator's ``error_order`` class attribute selects p
+        (2 for Ros2, 3 for Rodas3).
+        """
+        h     = var.dt
+        delta = para.delta
+        rtol  = vulcan_cfg.rtol
+        p     = self.error_order
+
+        if delta == 0:
+            delta = 0.01 * rtol
+
+        use_pi = (getattr(vulcan_cfg, 'use_pi_controller', False)
+                  and para.delta_prev > 0)
+        if use_pi:
+            a_over_p = 0.7 / p
+            b_over_p = 0.4 / p
+            h_factor = (0.9
+                        * (rtol / delta) ** a_over_p
+                        * (para.delta_prev / delta) ** b_over_p)
+        else:
+            h_factor = 0.9 * (rtol / delta) ** (1.0 / p)
+
+        h_factor = np.maximum(h_factor, dt_var_min)
+        h_factor = np.minimum(h_factor, dt_var_max)
+        h *= h_factor
+        h = np.maximum(h, dt_min)
+        h = np.minimum(h, dt_max)
+
+        var.dt = h
+        para.delta_prev = delta
+        return var
             
     def reset_y(self, var):
         var.y   = var.y_prev

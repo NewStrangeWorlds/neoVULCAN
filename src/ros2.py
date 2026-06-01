@@ -269,23 +269,6 @@ class Ros2(ODESolver):
                 break
         return var, para
 
-    def step_size(self, var, para,
-                  dt_var_min=vulcan_cfg.dt_var_min, dt_var_max=vulcan_cfg.dt_var_max,
-                  dt_min=vulcan_cfg.dt_min, dt_max=vulcan_cfg.dt_max):
-        """Step-size control by truncation error estimate."""
-        h = var.dt
-        delta = para.delta
-        rtol = vulcan_cfg.rtol
-
-        if delta == 0:
-            delta = 0.01 * rtol
-        h_factor = 0.9 * (rtol/delta)**0.5
-        h_factor = np.maximum(h_factor, dt_var_min)
-        h_factor = np.minimum(h_factor, dt_var_max)
-
-        h *= h_factor
-        h = np.maximum(h, dt_min)
-        h = np.minimum(h, dt_max)
-
-        var.dt = h
-        return var
+    # step_size is provided by the ODESolver base class (handles both the
+    # legacy I-controller and the optional Gustafsson PI controller via
+    # vulcan_cfg.use_pi_controller).  Ros2 inherits error_order = 2.

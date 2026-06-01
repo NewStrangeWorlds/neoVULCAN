@@ -126,7 +126,8 @@ st_factor = 0.5
 conv_step = 500
 
 # ====== Setting up numerical parameters for the ODE solver ====== 
-ode_solver = 'Ros2' # case sensitive
+ode_solver = 'Ros2' # case sensitive.  Options: 'Ros2' (2nd-order Verwer W-method, default) or 'Rodas3' (3rd-order Sandu Rosenbrock with cached banded LU; ~1.3-1.85× faster on HD189 const_mix benches; supports use_moldiff=True only).  See tests/bench_rodas3.py for empirical comparison.
+use_pi_controller = False # Gustafsson PI step-size controller.  Empirically tested on HD189 const_mix at rtol ∈ {0.25, 0.05, 0.02}: 4-11% slower than the legacy I-controller, never faster.  Default off — change only for experimentation.  See tests/bench_pi_controller.py.
 use_print_prog = True
 use_print_delta = False
 print_prog_num = 500  # print the progress every x steps 

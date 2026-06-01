@@ -20,7 +20,7 @@ class Variables(object):
         self.y = np.zeros((nz, ni)) # current number density in the shape of (number of vertical levels, number of species)
         self.y_prev = np.zeros((nz, ni)) # number density at the previous step
         self.ymix = np.zeros((nz, ni)) # current mixing ratios
-        self.y_ini = np.zeros((nz, ni)) # the initial number density 
+        self.y_ini = np.zeros((nz, ni)) # the initial number density
         self.t = 0 # integration time
         self.dt = vulcan_cfg.dttry # time step
         self.dy = 1. # the max change of y from the previous step to current step 
@@ -149,6 +149,11 @@ class Parameters(object):
         self.nega_y = 0
         self.small_y = 0
         self.delta = 0
+        # Gustafsson PI controller: previous accepted-step delta, used to
+        # form the derivative term.  -1 means "no previous step yet"; the
+        # controller falls back to pure I-control for the first step and
+        # after any rejection.
+        self.delta_prev = -1.0
         self.count = 0  # number of steps taken
         self.nega_count =0
         self.loss_count = 0
@@ -160,6 +165,11 @@ class Parameters(object):
         self.pic_count = 0 # for live plotting
         
         self.fix_species_start = False # flag for the start of fixing condensed species
+
+        # Newton finisher bookkeeping (see ODESolver.steady_newton)
+        self.last_newton_count = -10**9   # step count at last Newton attempt
+        self.newton_attempts = 0
+        self.newton_successes = 0
         
         # These are the "Tableau 20" colors as RGB.    
         self.tableau20 = [(31, 119, 180),(255, 127, 14),(44, 160, 44),(214, 39, 40),(148, 103, 189),(140, 86, 75), (227, 119, 194),(127, 127, 127),(188, 189, 34),(23, 190, 207),\

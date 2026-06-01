@@ -77,6 +77,7 @@ import chemistry_jax as chem_funs
 from rates import ReadRate
 from integration import Integration
 from ros2 import Ros2
+from rodas3 import Rodas3
 from ode_solver import ODESolver
 from output import Output
 
@@ -155,7 +156,7 @@ make_atm.BC_flux(data_atm)
 # time-steping in the while loop until conv() returns True or count > count_max 
 
 # setting the numerical solver to the designated one in vulcan_cfg
-_solvers = {'Ros2': Ros2, 'ODESolver': ODESolver}
+_solvers = {'Ros2': Ros2, 'Rodas3': Rodas3, 'ODESolver': ODESolver}
 solver = _solvers[vulcan_cfg.ode_solver]()
 
 # Setting up for photo chemistry

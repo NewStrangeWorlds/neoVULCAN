@@ -113,6 +113,9 @@ class Integration:
             if para.count % vulcan_cfg.update_frq == 0:
                 atm = self.update_mu_dz(var, atm, make_atm)
                 atm = self.update_phi_esc(var, atm)
+                # atm fields just changed — drop the JAX cache used by lhs_jac_banded.
+                if hasattr(self.odesolver, 'invalidate_atm_cache'):
+                    self.odesolver.invalidate_atm_cache()
 
             if vulcan_cfg.use_condense:
                 var.y[:, atm.gas_indx] = atm.n_0[:, np.newaxis] * var.ymix[:, atm.gas_indx]
@@ -131,6 +134,39 @@ class Integration:
 
             if use_live_plot and para.count % vulcan_cfg.live_plot_frq == 0:
                 self.output.plot_update(var, atm, para)
+
+            # ----------------------------------------------------------------
+            # Steady-state Newton finisher.  Once the integrator is "close"
+            # (longdy below threshold) try a damped Newton solve on
+            # F(y) = chemdf(y) + diffdf(y) = 0.  On success we are at the
+            # steady state and can exit; on failure fall through and let
+            # Rosenbrock continue.  A cooldown prevents wasted attempts.
+            # ----------------------------------------------------------------
+            # Disabled by default: the scaled-residual Newton iteration is
+            # dominated by stiff chemistry imbalances (forward ≈ reverse on
+            # PH3 etc.) in the hot deep atmosphere, so it can't reduce the
+            # residual below the natural stiffness floor.  Re-enabling will
+            # only help once log-space variables or QSSA partitioning are in
+            # place (Tier 2 work).  Set use_newton_finisher = True in
+            # vulcan_cfg to experiment.
+            if (getattr(vulcan_cfg, 'use_newton_finisher', False)
+                    and var.t > vulcan_cfg.trun_min
+                    and para.count > vulcan_cfg.count_min
+                    and var.longdy < getattr(vulcan_cfg, 'newton_switch_dy', 1.0)
+                    and para.count - para.last_newton_count >
+                        getattr(vulcan_cfg, 'newton_cooldown', 200)):
+
+                para.last_newton_count = para.count
+                para.newton_attempts  += 1
+                var, ok = self.odesolver.steady_newton(var, atm)
+                if ok:
+                    para.newton_successes += 1
+                    print('Integration successful via Newton finisher with '
+                          + str(para.count) + ' Rosenbrock steps + '
+                          + str(para.newton_attempts) + ' Newton attempt(s).')
+                    self.output.print_end_msg(var, para)
+                    para.end_case = 4
+                    return
             
             
         
