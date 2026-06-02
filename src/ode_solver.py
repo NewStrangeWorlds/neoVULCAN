@@ -405,7 +405,7 @@ class ODESolver:
             self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
             nz=nz,
         )
-        return np.asarray(ab), bw
+        return np.array(ab), bw
 
     def lhs_jac_banded_logy(self, var, atm):
         """Log-space banded LHS = c0*I - dg/dx where g(x) = f(exp(x))/exp(x).
@@ -440,7 +440,7 @@ class ODESolver:
             self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
             nz=nz,
         )
-        return np.asarray(ab), bw
+        return np.array(ab), bw
 
     def lhs_jac_steady(self, var, atm):
         """Banded -∂F/∂y for the steady-state Newton finisher.
@@ -464,7 +464,7 @@ class ODESolver:
             self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
             nz=nz,
         )
-        return np.asarray(ab), bw
+        return np.array(ab), bw
 
     def steady_newton(self, var, atm):
         """Damped Newton iteration on F(y) = chemdf(y) + diffdf(y) = 0.
