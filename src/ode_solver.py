@@ -347,14 +347,47 @@ class ODESolver:
         
         
     def _build_atm_jax_cache(self, atm):
-        """Convert atmospheric arrays needed by the JAX Jacobian to JAX once."""
+        """Convert atmospheric arrays needed by the JAX Jacobian to JAX once.
+
+        Also pre-computes the variant inputs (vs, vm, Dzz_eff, thermal_flag,
+        vm_bot_flag) based on the cfg flags so the per-step call site is
+        uniform regardless of which mol-diff/settling/vm variant is active.
+        """
         bot_vdep = atm.bot_vdep if vulcan_cfg.use_botflux else np.zeros(ni)
+
+        # Variant-dependent inputs.  See `_lhs_jac_banded_kernel` docstring for
+        # the conventions encoded here.
+        if vulcan_cfg.use_moldiff:
+            Dzz_eff = atm.Dzz
+        else:
+            Dzz_eff = np.zeros_like(atm.Dzz)
+
+        if vulcan_cfg.use_settling:
+            vs_eff = atm.vs
+        else:
+            vs_eff = np.zeros((nz - 1, ni))
+
+        use_vm_mol = getattr(vulcan_cfg, 'use_vm_mol', False)
+        if use_vm_mol:
+            vm_eff = atm.vm
+            # In the vm variants the thermal drift is encoded in vm itself,
+            # so the mol-diff thermal bracket must be turned off.
+            thermal_flag = 0.0
+        else:
+            vm_eff = np.zeros((nz, ni))
+            thermal_flag = 1.0
+
+        # settling_vm only: zero the vm boundary contribution at j=0
+        vm_bot_flag = 0.0 if (use_vm_mol and vulcan_cfg.use_settling) else 1.0
+
         self._atm_jax = {
             'M':        jnp.asarray(atm.M),
             'dzi':      jnp.asarray(atm.dzi),
             'Kzz':      jnp.asarray(atm.Kzz),
-            'Dzz':      jnp.asarray(atm.Dzz),
+            'Dzz':      jnp.asarray(Dzz_eff),
             'vz':       jnp.asarray(atm.vz),
+            'vs':       jnp.asarray(vs_eff),
+            'vm':       jnp.asarray(vm_eff),
             'alpha':    jnp.asarray(atm.alpha),
             'Tco':      jnp.asarray(atm.Tco),
             'ms':       jnp.asarray(atm.ms),
@@ -362,6 +395,8 @@ class ODESolver:
             'Ti':       jnp.asarray(atm.Ti),
             'Hpi':      jnp.asarray(atm.Hpi),
             'bot_vdep': jnp.asarray(bot_vdep),
+            'thermal_flag': jnp.float64(thermal_flag),
+            'vm_bot_flag':  jnp.float64(vm_bot_flag),
         }
 
     def invalidate_atm_cache(self):
@@ -400,9 +435,11 @@ class ODESolver:
         ab = _lhs_jac_banded_kernel(
             jnp.asarray(var.y), a['M'], jnp.asarray(k_arr),
             jnp.float64(c0),
-            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['alpha'], a['Tco'],
+            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['vs'], a['vm'],
+            a['alpha'], a['Tco'],
             a['ms'], a['g'], a['Ti'], a['Hpi'],
-            self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
+            self._gas_mask_jax, a['bot_vdep'],
+            self._use_botflux_flag, a['thermal_flag'], a['vm_bot_flag'],
             nz=nz,
         )
         return np.array(ab), bw
@@ -459,9 +496,11 @@ class ODESolver:
         ab = _lhs_jac_banded_kernel(
             jnp.asarray(var.y), a['M'], jnp.asarray(k_arr),
             jnp.float64(0.0),
-            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['alpha'], a['Tco'],
+            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['vs'], a['vm'],
+            a['alpha'], a['Tco'],
             a['ms'], a['g'], a['Ti'], a['Hpi'],
-            self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
+            self._gas_mask_jax, a['bot_vdep'],
+            self._use_botflux_flag, a['thermal_flag'], a['vm_bot_flag'],
             nz=nz,
         )
         return np.array(ab), bw

@@ -1,5 +1,6 @@
 import numpy as np
 import scipy
+from scipy.linalg.lapack import dgbtrf, dgbtrs
 
 import vulcan_cfg
 import build_atm
@@ -56,32 +57,27 @@ class Ros2(ODESolver):
         y, ymix, h, k = var.y, var.ymix, var.dt, var.k
         M, dzi, Kzz = atm.M, atm.dzi, atm.Kzz
 
+        # diffdf still uses the numpy variants (only ~1.5 ms/step total, so
+        # not worth porting yet); the LHS Jacobian goes through the unified
+        # fused JAX kernel `lhs_jac_banded`, which routes settling/vm/no_mol
+        # via the cached vs/vm/Dzz/thermal_flag/vm_bot_flag arrays.
         if not vulcan_cfg.use_vm_mol:
             if vulcan_cfg.use_moldiff and not vulcan_cfg.use_settling:
-                diffdf     = self.diffdf
-                jac_fn     = self.lhs_jac_banded
-                use_banded = True
+                diffdf = self.diffdf
             elif vulcan_cfg.use_moldiff and vulcan_cfg.use_settling:
-                diffdf     = self.diffdf_settling
-                jac_fn     = self.lhs_jac_settling
-                use_banded = False
+                diffdf = self.diffdf_settling
             else:
-                diffdf     = self.diffdf_no_mol
-                jac_fn     = self.lhs_jac_no_mol
-                use_banded = False
+                diffdf = self.diffdf_no_mol
         else:
             if vulcan_cfg.use_moldiff and not vulcan_cfg.use_settling:
-                diffdf     = self.diffdf_vm
-                jac_fn     = self.lhs_jac_tot_vm
-                use_banded = False
+                diffdf = self.diffdf_vm
             elif vulcan_cfg.use_moldiff and vulcan_cfg.use_settling:
-                diffdf     = self.diffdf_settling_vm
-                jac_fn     = self.lhs_jac_settling_vm
-                use_banded = False
+                diffdf = self.diffdf_settling_vm
             else:
-                diffdf     = self.diffdf_no_mol
-                jac_fn     = self.lhs_jac_no_mol
-                use_banded = False
+                diffdf = self.diffdf_no_mol
+
+        jac_fn     = self.lhs_jac_banded
+        use_banded = True
 
         r = 1. + 1./2.**0.5
 
