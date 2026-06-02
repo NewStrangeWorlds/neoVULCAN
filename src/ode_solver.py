@@ -156,13 +156,15 @@ class ODESolver:
     def _upwind_advection(self, dzi, v):
         """Upwind advection coefficients for velocity field v.
 
-        v may be 1-D (nz,) for a scalar velocity or 2-D (nz, ni) for a
-        species-dependent velocity.  Returns (dA, dB, dC) with the same shape
-        as v, to be added to the caller's tridiagonal arrays.
+        v may be cell-centered ((nz,) or (nz, ni)) or interface-defined
+        ((nz-1,) or (nz-1, ni) — e.g. the settling velocity ``atm.vs``).
+        Returns (dA, dB, dC) shaped on the cell grid ((nz,) or (nz, ni)) so
+        they can be added directly to the caller's tridiagonal arrays.
         """
-        dA = np.zeros_like(v)
-        dB = np.zeros_like(v)
-        dC = np.zeros_like(v)
+        out_shape = (nz,) if v.ndim == 1 else (nz, v.shape[1])
+        dA = np.zeros(out_shape)
+        dB = np.zeros(out_shape)
+        dC = np.zeros(out_shape)
 
         dA[0]  = -((v[0]>0)*v[0])   / dzi[0]
         dB[0]  = -((v[0]<0)*v[0])   / dzi[0]

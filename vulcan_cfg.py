@@ -41,7 +41,7 @@ use_ini_cold_trap = True #True
 const_mix = {'CH4':2.7761E-4*2, 'O2':4.807e-4, 'He':0.09691, 'N2':8.1853E-5, 'H2':1. -2.7761E-4*2*4/2} 
 
 # ====== Setting up photochemistry ======
-use_photo = True
+use_photo = False
 # astronomy input
 r_star = 0.805 # stellar radius in solar radius
 Rp = 1.138*7.1492E9 # Planetary radius (cm) (for computing gravity)
