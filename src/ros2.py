@@ -84,6 +84,7 @@ class Ros2(ODESolver):
 
         if use_banded:
             lhs_b, bw = jac_fn(var, atm)
+            # lhs_b is in LAPACK band storage (3*bw+1 rows; main diagonal at row 2*bw).
             if vulcan_cfg.use_condense and para.fix_species_start:
                 for sp in vulcan_cfg.fix_species:
                     if not vulcan_cfg.fix_species_from_coldtrap_lev:
@@ -93,11 +94,11 @@ class Ros2(ODESolver):
                         atm.fix_sp_indx[sp] = np.arange(species.index(sp), species.index(sp) + ni*(pfix_indx), ni)
                     df[atm.fix_sp_indx[sp]] = 0
                     lhs_b[:, atm.fix_sp_indx[sp]] = 0.
-                    lhs_b[bw, atm.fix_sp_indx[sp]] = 1./(r*h)
+                    lhs_b[2*bw, atm.fix_sp_indx[sp]] = 1./(r*h)
             if vulcan_cfg.use_ion:
                 df[atm.fix_e_indx] = 0
                 lhs_b[:, atm.fix_e_indx] = 0.
-                lhs_b[bw, atm.fix_e_indx] = 1./(r*h)
+                lhs_b[2*bw, atm.fix_e_indx] = 1./(r*h)
         else:
             lhs = jac_fn(var, atm)
             if vulcan_cfg.use_condense and para.fix_species_start:
@@ -116,20 +117,13 @@ class Ros2(ODESolver):
                 lhs[atm.fix_e_indx, atm.fix_e_indx] = 1./(r*h)
             lhs_b, bw = self.store_bandM(lhs, ni, nz)
 
-        # Factor lhs_b once with LAPACK banded LU (dgbtrf), then back-substitute
-        # twice (once for k1, once for k2 — the W-method shares the same LHS).
-        # Old code called scipy.linalg.solve_banded twice, which re-factored on
-        # each call; factor cost dominates this solve at bw=2*ni-1 so reuse is
-        # a ~25-30% per-step win.
-        #
-        # dgbtrf expects the LAPACK band format with kl+ku+1+kl = 2*bw+1+bw
-        # rows (the top bw rows are factorisation workspace); the kernel emits
-        # the solve_banded format (2*bw+1 rows), so we prepend bw zero rows.
-        N = lhs_b.shape[1]
-        ab_lapack = np.empty((3 * bw + 1, N))
-        ab_lapack[:bw] = 0.0
-        ab_lapack[bw:] = lhs_b
-        ab_factored, ipiv, info = dgbtrf(ab_lapack, bw, bw, overwrite_ab=1)
+        # Factor lhs_b once (dgbtrf, in-place), then back-substitute twice
+        # (one dgbtrs per stage — the W-method shares the same LHS).  Old code
+        # called scipy.linalg.solve_banded twice, which re-factored on each
+        # call; factor cost dominates the solve at bw=2*ni-1, so reuse here
+        # is a ~25-30% per-step win.  lhs_b is already in LAPACK band storage
+        # (lhs_jac_banded materialised it directly), so no padding needed.
+        ab_factored, ipiv, info = dgbtrf(lhs_b, bw, bw, overwrite_ab=1)
         if info != 0:
             raise RuntimeError(f"dgbtrf failed: info={info}")
         k1_flat, info = dgbtrs(ab_factored, bw, bw, df, ipiv)

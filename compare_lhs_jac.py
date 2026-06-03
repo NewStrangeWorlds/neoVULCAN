@@ -101,8 +101,12 @@ def run_case(label, cfg_flags, solver, data_var, data_atm, numpy_method,
         # Re-build the JAX cache so it picks up the new flags.
         solver.invalidate_atm_cache()
 
-        # Path A: fused JAX kernel.
-        lhs_b_A, bw_A = solver.lhs_jac_banded(data_var, data_atm)
+        # Path A: fused JAX kernel.  lhs_jac_banded now returns the matrix in
+        # LAPACK band storage (3*bw+1 rows; top bw rows are dgbtrf workspace).
+        # Slice the bottom 2*bw+1 rows to recover scipy solve_banded format
+        # for an apples-to-apples comparison with the numpy reference.
+        lhs_b_A_lapack, bw_A = solver.lhs_jac_banded(data_var, data_atm)
+        lhs_b_A = lhs_b_A_lapack[bw_A:]
 
         # Path B: numpy assembly → (dense → store_bandM, or directly banded).
         if numpy_returns_banded:

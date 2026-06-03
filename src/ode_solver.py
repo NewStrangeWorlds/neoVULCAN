@@ -404,21 +404,22 @@ class ODESolver:
         self._atm_jax = None
 
     def lhs_jac_banded(self, var, atm, c0=None):
-        """Build LHS = c0*I - dfdy directly in scipy banded format.
+        """Build LHS = c0*I - dfdy and return it in **LAPACK band storage**
+        (shape ``(3*bw+1, ni*nz)``, ready to hand to ``dgbtrf`` in place).
 
-        Delegates the full assembly (chemistry blocks + eddy + molecular
-        diffusion + boundary conditions) to a JIT-compiled JAX kernel
-        ``_lhs_jac_banded_kernel`` to avoid per-step Python overhead.
-        Returns (ab, bw) ready for scipy.linalg.solve_banded.
+        The kernel emits the matrix in the compact ``(2*bw+1, ni*nz)`` form
+        used by ``scipy.linalg.solve_banded``; we materialise it once into
+        the LAPACK layout here so the caller doesn't have to re-allocate and
+        re-copy on every step.  Top ``bw`` rows are zero workspace required
+        by ``dgbtrf``; the band data occupies rows ``bw`` through ``3*bw``,
+        with the main diagonal at row ``2*bw``.
+
+        Returns ``(ab_lapack, bw)``.
 
         ``c0`` is the diagonal coefficient of the W-method LHS.  If not
         provided, defaults to Ros2's ``1/(r*h)`` with r = 1 + 1/√2.
         Higher-order Rosenbrock methods (e.g. Rodas3) pass their own
         ``c0 = 1/(γ*h)`` consistent with the method's γ.
-
-        Banded mapping:
-          ab[bw + (i-j), j] = dense[i, j]   (scipy convention)
-        where rows are layer-major: index iz*ni+sp.
         """
         from chemistry_jax import k_dict_to_array
 
@@ -442,7 +443,13 @@ class ODESolver:
             self._use_botflux_flag, a['thermal_flag'], a['vm_bot_flag'],
             nz=nz,
         )
-        return np.array(ab), bw
+        # Materialise into LAPACK layout in one shot: avoids the previous
+        # double-copy (JAX→writable numpy, then numpy→ab_lapack inside solver).
+        N = ni * nz
+        ab_lapack = np.empty((3 * bw + 1, N))
+        ab_lapack[:bw] = 0.0
+        ab_lapack[bw:] = ab
+        return ab_lapack, bw
 
     def lhs_jac_banded_logy(self, var, atm):
         """Log-space banded LHS = c0*I - dg/dx where g(x) = f(exp(x))/exp(x).

@@ -21443,6 +21443,11 @@ def Gibbs(i, T):
 _chemdf_vmap = jax.vmap(_chemdf_single, in_axes=(0, 0, 1))
 chemdf_jax   = jax.jit(_chemdf_vmap)
 
+# Chemistry Jacobian via forward-mode autodiff.  A hand-coded sparse variant
+# was experimented with (see `make_chemistry_jax.generate_chem_jac_jax_section`)
+# but landed at parity with this autodiff path on the SNCHO network — XLA's
+# CSE evidently exploits the ~22% sparsity in the chemistry Jacobian on its
+# own.  Keeping autodiff here: smaller generated file, fewer moving parts.
 _jac_single = jax.jacfwd(_chemdf_single, argnums=0)
 _jac_vmap   = jax.vmap(_jac_single, in_axes=(0, 0, 1))
 _jac_jit    = jax.jit(_jac_vmap)

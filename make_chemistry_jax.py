@@ -150,13 +150,15 @@ def _merge_species(species_noM, chem_dict):
     return [(s, n) for idx, (s, n) in sorted(merged.items())]
 
 
-def _deriv_rate_expr_numpy(species_noM, k_idx, wrt_idx, chem_dict, M_power):
-    """NumPy expression for d(rate)/d(y[:,wrt_idx]), vectorised over layers.
+def _deriv_rate_expr(species_noM, k_idx, wrt_idx, chem_dict, M_power, numpy_mode=True):
+    """Expression for d(rate)/d(y[wrt_idx]).
 
     species_noM : [(stoi, name), ...] with M already excluded
     k_idx       : key into the k dict for this direction
     wrt_idx     : species index being differentiated
     M_power     : total M stoichiometry in this rate term
+    numpy_mode  : if True, emit ``y[:,idx]`` (numpy, vectorised over layers);
+                  if False, emit ``y[idx]`` (single-layer JAX inside vmap).
 
     Returns None when wrt_idx does not appear in species_noM.
 
@@ -184,16 +186,21 @@ def _deriv_rate_expr_numpy(species_noM, k_idx, wrt_idx, chem_dict, M_power):
     for stoi, name in merged:
         idx = chem_dict[name]
         eff = (stoi - 1) if idx == wrt_idx else stoi
+        ref = f"y[:,{idx}]" if numpy_mode else f"y[{idx}]"
         if eff == 1:
-            parts.append(f"y[:,{idx}]")
+            parts.append(ref)
         elif eff > 1:
-            parts.append(f"y[:,{idx}]**{eff}")
+            parts.append(f"{ref}**{eff}")
         # eff == 0 → factor of 1, omit
 
     return "*".join(parts)
 
 
-def build_jac_terms(chem_dict, reactions):
+# Back-compat alias for the previous name (used elsewhere in the file).
+_deriv_rate_expr_numpy = _deriv_rate_expr
+
+
+def build_jac_terms(chem_dict, reactions, numpy_mode=True):
     """Return {(i, r): [(term_str, j, rxn_str), ...]} for the analytical Jacobian.
 
     J[iz, i, r] = d(dy_i/dt)/d(y_r).
@@ -219,7 +226,7 @@ def build_jac_terms(chem_dict, reactions):
         # Forward contributions — differentiate w.r.t. each (merged) reactant
         for _sr, r_name in reac_merged:
             r_idx = chem_dict[r_name]
-            dv = _deriv_rate_expr_numpy(reac_noM, j, r_idx, chem_dict, m_fwd)
+            dv = _deriv_rate_expr(reac_noM, j, r_idx, chem_dict, m_fwd, numpy_mode=numpy_mode)
             if dv is None:
                 continue
             for s_a, a_name in reac_merged:
@@ -234,7 +241,7 @@ def build_jac_terms(chem_dict, reactions):
         # Reverse contributions — differentiate w.r.t. each (merged) product
         for _sr, r_name in prod_merged:
             r_idx = chem_dict[r_name]
-            dv = _deriv_rate_expr_numpy(prod_noM, j+1, r_idx, chem_dict, m_rev)
+            dv = _deriv_rate_expr(prod_noM, j+1, r_idx, chem_dict, m_rev, numpy_mode=numpy_mode)
             if dv is None:
                 continue
             for s_a, a_name in reac_merged:
@@ -315,6 +322,11 @@ _POSTAMBLE = '''\
 _chemdf_vmap = jax.vmap(_chemdf_single, in_axes=(0, 0, 1))
 chemdf_jax   = jax.jit(_chemdf_vmap)
 
+# Chemistry Jacobian via forward-mode autodiff.  A hand-coded sparse variant
+# was experimented with (see `make_chemistry_jax.generate_chem_jac_jax_section`)
+# but landed at parity with this autodiff path on the SNCHO network — XLA's
+# CSE evidently exploits the ~22% sparsity in the chemistry Jacobian on its
+# own.  Keeping autodiff here: smaller generated file, fewer moving parts.
 _jac_single = jax.jacfwd(_chemdf_single, argnums=0)
 _jac_vmap   = jax.vmap(_jac_single, in_axes=(0, 0, 1))
 _jac_jit    = jax.jit(_jac_vmap)
@@ -396,6 +408,74 @@ def neg_achemjac(y, M, k_dict):
     return _scipy_block_diag(*(-chem_jac_blocks(y, M, k_dict)))
 '''
 
+
+
+# ---------------------------------------------------------------------------
+# JAX section generator (hand-coded sparse chemistry Jacobian)
+# ---------------------------------------------------------------------------
+
+def generate_chem_jac_jax_section(chem_dict, reactions, ni, idx_to_name):
+    """Emit `_chem_jac_single(y, M, k)` returning a (ni, ni) JAX array.
+
+    Hand-coded sparse Jacobian — only the ~22% non-zero (i, r) entries are
+    computed; the rest are filled with zeros via a single scatter into a
+    ``jnp.zeros((ni, ni))`` base.  This keeps the traced computation small
+    (~2200 scalar expressions + one scatter) instead of materialising a
+    9801-element ``jnp.stack`` with ~7600 constant-zero placeholders.
+
+    Replaces ``_jac_single = jax.jacfwd(_chemdf_single)`` (forward-mode AD
+    over the dense chemistry function), which paid the full ni-pass cost
+    regardless of sparsity.
+    """
+    INDENT = '        '
+    jac_terms = build_jac_terms(chem_dict, reactions, numpy_mode=False)
+    nz_keys = sorted(jac_terms.keys())   # canonical (i, r) order for the scatter
+
+    out = []
+    out.append('\n\n')
+    out.append('# ' + '-' * 75 + '\n')
+    out.append('# Hand-coded sparse chemistry Jacobian (single-layer, JAX).\n')
+    out.append('# Only the ~22% non-zero (i, r) pairs from the symbolic stoichiometry\n')
+    out.append('# are computed; result is scattered into a zeros base.\n')
+    out.append('# ' + '-' * 75 + '\n\n')
+
+    # Index arrays for the scatter (compile-time constants, baked into the JIT).
+    out.append('_CHEM_JAC_ROWS = jnp.array([\n')
+    for batch in range(0, len(nz_keys), 16):
+        chunk = nz_keys[batch:batch + 16]
+        out.append('    ' + ', '.join(str(i) for (i, _) in chunk) + ',\n')
+    out.append('], dtype=jnp.int32)\n\n')
+
+    out.append('_CHEM_JAC_COLS = jnp.array([\n')
+    for batch in range(0, len(nz_keys), 16):
+        chunk = nz_keys[batch:batch + 16]
+        out.append('    ' + ', '.join(str(r) for (_, r) in chunk) + ',\n')
+    out.append('], dtype=jnp.int32)\n\n')
+
+    out.append('def _chem_jac_single(y, M, k):\n')
+    out.append(f'    """Per-layer chemistry Jacobian: returns ({ni}, {ni}) jax array.\n')
+    out.append('\n')
+    out.append('    J[i, r] = d(dy_i/dt) / d(y_r) at one layer.  Caller is responsible\n')
+    out.append('    for signs (the LHS kernel uses -J).\n')
+    out.append('    """\n')
+    out.append('    vals = jnp.stack([\n')
+
+    # One value per non-zero (i, r), in the same order as the rows/cols arrays.
+    for (i, r) in nz_keys:
+        terms = jac_terms[(i, r)]
+        if len(terms) == 1:
+            term, j, rxn_str = terms[0]
+            out.append(f'{INDENT}{term},  # ({i},{r}) R{j}: {rxn_str}\n')
+        else:
+            out.append(f'{INDENT}# ({i},{r}) d({idx_to_name[i]})/d({idx_to_name[r]})\n')
+            for k_idx, (term, j, rxn_str) in enumerate(terms):
+                is_last = (k_idx == len(terms) - 1)
+                suffix = ',' if is_last else ''
+                out.append(f'{INDENT}{term}{suffix}  # R{j}: {rxn_str}\n')
+
+    out.append('    ])\n')
+    out.append(f'    return jnp.zeros(({ni}, {ni})).at[_CHEM_JAC_ROWS, _CHEM_JAC_COLS].set(vals)\n')
+    return ''.join(out)
 
 
 # ---------------------------------------------------------------------------
@@ -537,7 +617,9 @@ def generate(chem_dict, reactions, ofname):
                 suffix = ',' if is_last else ''
                 out.append(f'{INDENT}{term}{suffix}  # R{j}: {rxn_str}\n')
 
-    # Close _chemdf_single, emit NumPy section, Gibbs, then JAX infrastructure + APIs
+    # Close _chemdf_single, emit NumPy section, Gibbs, then JAX infrastructure + APIs.
+    # `generate_chem_jac_jax_section` is kept in this file as dead code (see its
+    # docstring) — was a perf experiment, see commit notes.
     out.append(_CHEMDF_CLOSE)
     out.append(generate_numpy_section(chem_dict, reactions, ni, idx_to_name))
     out.append(generate_gibbs_section(reactions, vulcan_cfg.gibbs_text))
