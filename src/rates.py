@@ -201,28 +201,32 @@ class ReadRate(object):
                     columns = li.split()
                     Rindx[i] = int(line.partition('[')[0].strip())
                     # columns[0]: the species being dissocited; branch index: columns[1]
-                    pho_rate_index[(columns[0],int(columns[1]))] = Rindx[i]
-                    
+                    # Index by the sequential counter `i` (the slot chemdf reads
+                    # from) — NOT by the file's Rindx, which can skip values when
+                    # reactions are removed but the numbering kept.
+                    pho_rate_index[(columns[0],int(columns[1]))] = i
+
                     # store the number of branches
                     var.n_branch[columns[0]] = int(columns[1])
-                    
+
                     i += 2
-                
+
                 # setting photo ionization reactions to zeros
                 elif ion_re and line.strip() and not line.startswith("#"): # and end_re == False
-                    
+
                     k[i] = np.zeros(nz)
                     Rf[i] = line.partition('[')[-1].rpartition(']')[0].strip()
-                    
+
                     # chekcing if it already existed in the photo species
                     #if Rf[i].split()[0] not in photo_sp: print (str(Rf[i].split()[0]) + ' not present in the photo disccoiation but only in ionization!')
                     ion_sp.append(Rf[i].split()[0])
-                    
+
                     li = line.partition(']')[-1].strip()
                     columns = li.split()
                     Rindx[i] = int(line.partition('[')[0].strip())
                     # columns[0]: the species being dissocited; branch index: columns[1]
-                    ion_rate_index[(columns[0],int(columns[1]))] = Rindx[i]
+                    # See pho_rate_index above: index by counter `i`, not file Rindx.
+                    ion_rate_index[(columns[0],int(columns[1]))] = i
                     
                     # store the number of branches
                     var.ion_branch[columns[0]] = int(columns[1])

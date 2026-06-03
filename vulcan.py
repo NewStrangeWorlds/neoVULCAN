@@ -57,7 +57,7 @@ if _src not in sys.path:
 
 # import public modules
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as pltslope_min
 import matplotlib.legend as lg
 import scipy
 import scipy.optimize as sop
