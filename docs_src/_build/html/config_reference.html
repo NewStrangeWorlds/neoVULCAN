@@ -1,0 +1,1329 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="Code architecture" href="code_architecture.html"><link rel="prev" title="Numerical methods" href="numerics.html">
+
+    <!-- Generated with Sphinx 8.1.3 and Furo 2025.12.19 -->
+        <title>Configuration reference - neoVULCAN documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">neoVULCAN documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <span class="sidebar-brand-text">neoVULCAN documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="running.html">Running neoVULCAN</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Theory</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="math_background.html">Mathematical background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="numerics.html">Numerical methods</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="code_architecture.html">Code architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API reference</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Appendix</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/config_reference.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="configuration-reference">
+<h1>Configuration reference<a class="headerlink" href="#configuration-reference" title="Link to this heading">¶</a></h1>
+<p>A neoVULCAN simulation is configured by a single <strong>TOML</strong> file passed to
+<code class="docutils literal notranslate"><span class="pre">vulcan.py</span></code> with the <code class="docutils literal notranslate"><span class="pre">-c</span></code> flag (default: <code class="docutils literal notranslate"><span class="pre">vulcan_cfg.toml</span></code> next to
+<code class="docutils literal notranslate"><span class="pre">vulcan.py</span></code>). The file is parsed by <code class="docutils literal notranslate"><span class="pre">tomllib</span></code> (Python 3.11+) or
+<code class="docutils literal notranslate"><span class="pre">tomli</span></code> (Python 3.10) and validated against the Pydantic schema
+defined in <code class="docutils literal notranslate"><span class="pre">src/neovulcan_config.py</span></code>. Validation is <strong>strict</strong>: any
+unknown key, wrong type, or out-of-range value is rejected at load time
+with a precise error message rather than silently ignored.</p>
+<p>The file is organised into ten sections. Each section maps to one of
+the Pydantic model classes
+(<a class="reference internal" href="api.html#neovulcan_config.NetworkConfig" title="neovulcan_config.NetworkConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">NetworkConfig</span></code></a>,
+<a class="reference internal" href="api.html#neovulcan_config.PathsConfig" title="neovulcan_config.PathsConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">PathsConfig</span></code></a>,
+<a class="reference internal" href="api.html#neovulcan_config.ElementsConfig" title="neovulcan_config.ElementsConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">ElementsConfig</span></code></a>,
+<a class="reference internal" href="api.html#neovulcan_config.AtmosphereConfig" title="neovulcan_config.AtmosphereConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">AtmosphereConfig</span></code></a>,
+<a class="reference internal" href="api.html#neovulcan_config.PhotochemConfig" title="neovulcan_config.PhotochemConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">PhotochemConfig</span></code></a>,
+<a class="reference internal" href="api.html#neovulcan_config.BoundaryConfig" title="neovulcan_config.BoundaryConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryConfig</span></code></a>,
+<a class="reference internal" href="api.html#neovulcan_config.CondensationConfig" title="neovulcan_config.CondensationConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">CondensationConfig</span></code></a>,
+<a class="reference internal" href="api.html#neovulcan_config.SolverConfig" title="neovulcan_config.SolverConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolverConfig</span></code></a>,
+<a class="reference internal" href="api.html#neovulcan_config.OutputConfig" title="neovulcan_config.OutputConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">OutputConfig</span></code></a>,
+<a class="reference internal" href="api.html#neovulcan_config.PlottingConfig" title="neovulcan_config.PlottingConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">PlottingConfig</span></code></a>).</p>
+<p>A machine-generated reference with every parameter and its default is
+shipped at <code class="docutils literal notranslate"><span class="pre">vulcan_cfg_defaults.toml</span></code> in the package root and in
+<code class="docutils literal notranslate"><span class="pre">cfg_examples/</span></code>. Treat it as documentation; do not edit it for
+production runs. To regenerate it after a schema change run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>_gen_defaults_toml.py
+</pre></div>
+</div>
+<p>CGS units (cm, g, s, K, dyn cm<sup>-2</sup>, erg) are used throughout
+unless explicitly stated.</p>
+<section id="network">
+<h2><code class="docutils literal notranslate"><span class="pre">[network]</span></code><a class="headerlink" href="#network" title="Link to this heading">¶</a></h2>
+<p>Chemical-reaction network and thermochemistry inputs.
+Schema: <a class="reference internal" href="api.html#neovulcan_config.NetworkConfig" title="neovulcan_config.NetworkConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">neovulcan_config.NetworkConfig</span></code></a>.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 12.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">atom_list</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p><strong>Required.</strong> Elements tracked for conservation (e.g.
+<code class="docutils literal notranslate"><span class="pre">[&quot;H&quot;,</span> <span class="pre">&quot;O&quot;,</span> <span class="pre">&quot;C&quot;,</span> <span class="pre">&quot;N&quot;,</span> <span class="pre">&quot;S&quot;,</span> <span class="pre">&quot;He&quot;]</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">network</span></code></p></td>
+<td><p>str</p></td>
+<td><p><strong>Required.</strong> Path to the network file (e.g.
+<code class="docutils literal notranslate"><span class="pre">&quot;thermo/SNCHO_photo_network_2025.txt&quot;</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gibbs_text</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Index file listing the NASA-9 polynomial files used to build
+Gibbs free energies. Default <code class="docutils literal notranslate"><span class="pre">&quot;thermo/gibbs_text.txt&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">com_file</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Composition file with basic per-species properties (mass,
+charge, atomic content). Default <code class="docutils literal notranslate"><span class="pre">&quot;thermo/all_compose.txt&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cross_folder</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Directory of photolysis cross-sections.
+Default <code class="docutils literal notranslate"><span class="pre">&quot;thermo/photo_cross/&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_lowT_limit_rates</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Clip thermal rates to their low-temperature limits below the
+Arrhenius validity range. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">remove_list</span></code></p></td>
+<td><p>list[int]</p></td>
+<td><p>Reaction indices to disable. Forward/reverse pairs should be
+removed together (e.g. <code class="docutils literal notranslate"><span class="pre">[315,</span> <span class="pre">316]</span></code>). Default <code class="docutils literal notranslate"><span class="pre">[]</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="paths">
+<h2><code class="docutils literal notranslate"><span class="pre">[paths]</span></code><a class="headerlink" href="#paths" title="Link to this heading">¶</a></h2>
+<p>File-system paths for atmospheric input, stellar flux, boundary
+conditions, and output.
+Schema: <a class="reference internal" href="api.html#neovulcan_config.PathsConfig" title="neovulcan_config.PathsConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">neovulcan_config.PathsConfig</span></code></a>.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">VulcanConfig.from_toml</span></code> is called with <code class="docutils literal notranslate"><span class="pre">absolutify_paths=True</span></code>
+(used by the library API), relative paths are resolved against the
+<code class="docutils literal notranslate"><span class="pre">base_dir</span></code> argument (TOML’s directory by default); otherwise the
+values are passed through unchanged.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 12.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fastchem_dir</span></code></p></td>
+<td><p>str</p></td>
+<td><p>FastChem element &amp; rate-coefficient directory. Default
+<code class="docutils literal notranslate"><span class="pre">&quot;fastchem_input&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">atm_file</span></code></p></td>
+<td><p>str</p></td>
+<td><p><strong>Required.</strong> Temperature–pressure profile (and optional
+<span class="math notranslate nohighlight">\(\Kzz\)</span>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sflux_file</span></code></p></td>
+<td><p>str</p></td>
+<td><p><strong>Required.</strong> Stellar flux density at the stellar surface
+(<span class="math notranslate nohighlight">\(\mathrm{erg\,cm^{-2}\,s^{-1}\,nm^{-1}}\)</span>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">top_BC_flux_file</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Top-of-atmosphere boundary-condition flux file. Default
+<code class="docutils literal notranslate"><span class="pre">&quot;atm/&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bot_BC_flux_file</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Bottom-of-atmosphere boundary-condition flux file. Default
+<code class="docutils literal notranslate"><span class="pre">&quot;atm/&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">vul_ini</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Previous <code class="docutils literal notranslate"><span class="pre">.vul</span></code> file to initialise abundances from (only read
+when <code class="docutils literal notranslate"><span class="pre">elements.ini_mix</span> <span class="pre">=</span> <span class="pre">&quot;vulcan_ini&quot;</span></code>). Default <code class="docutils literal notranslate"><span class="pre">&quot;output/&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">output_dir</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Output directory for the pickle file. Default <code class="docutils literal notranslate"><span class="pre">&quot;output/&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">plot_dir</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Output directory for plots. Default <code class="docutils literal notranslate"><span class="pre">&quot;plot/&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">movie_dir</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Output directory for live-plot frames. Default
+<code class="docutils literal notranslate"><span class="pre">&quot;plot/movie/&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">out_name</span></code></p></td>
+<td><p>str</p></td>
+<td><p><strong>Required.</strong> Output file name (extension <code class="docutils literal notranslate"><span class="pre">.vul</span></code>).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="elements">
+<h2><code class="docutils literal notranslate"><span class="pre">[elements]</span></code><a class="headerlink" href="#elements" title="Link to this heading">¶</a></h2>
+<p>Elemental abundances and initial mixing-ratio mode.
+Schema: <a class="reference internal" href="api.html#neovulcan_config.ElementsConfig" title="neovulcan_config.ElementsConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">neovulcan_config.ElementsConfig</span></code></a>.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 12.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_solar</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Use the solar abundances of Lodders (2009). If <code class="docutils literal notranslate"><span class="pre">false</span></code> the
+<code class="docutils literal notranslate"><span class="pre">metal_abundances</span></code> sub-table is used instead. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">metal_abundances</span></code></p></td>
+<td><p>dict[str, float]</p></td>
+<td><p>Element-to-hydrogen number ratios (e.g.
+<code class="docutils literal notranslate"><span class="pre">{O</span> <span class="pre">=</span> <span class="pre">5.37e-4,</span> <span class="pre">C</span> <span class="pre">=</span> <span class="pre">2.95e-4,</span> <span class="pre">He</span> <span class="pre">=</span> <span class="pre">0.0838}</span></code>). Empty by default;
+set in the sub-table <code class="docutils literal notranslate"><span class="pre">[elements.metal_abundances]</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ini_mix</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Initial-condition mode: one of <code class="docutils literal notranslate"><span class="pre">&quot;EQ&quot;</span></code> (FastChem equilibrium),
+<code class="docutils literal notranslate"><span class="pre">&quot;const_mix&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;vulcan_ini&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;table&quot;</span></code>. Default
+<code class="docutils literal notranslate"><span class="pre">&quot;const_mix&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fastchem_met_scale</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Metallicity scaling factor passed to FastChem for the trace
+elements not in <code class="docutils literal notranslate"><span class="pre">atom_list</span></code> (e.g. Si, Mg). <code class="docutils literal notranslate"><span class="pre">1.0</span></code> is solar.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">const_mix</span></code></p></td>
+<td><p>dict[str, float]</p></td>
+<td><p>Constant mixing ratios used when <code class="docutils literal notranslate"><span class="pre">ini_mix</span> <span class="pre">=</span> <span class="pre">&quot;const_mix&quot;</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">{N2</span> <span class="pre">=</span> <span class="pre">0.78,</span> <span class="pre">O2</span> <span class="pre">=</span> <span class="pre">0.20,</span> <span class="pre">H2O</span> <span class="pre">=</span> <span class="pre">1.0e-6}</span></code>). Empty by default; set
+in the sub-table <code class="docutils literal notranslate"><span class="pre">[elements.const_mix]</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="atmosphere">
+<h2><code class="docutils literal notranslate"><span class="pre">[atmosphere]</span></code><a class="headerlink" href="#atmosphere" title="Link to this heading">¶</a></h2>
+<p>Atmospheric structure: vertical grid, T–P profile, eddy diffusion,
+molecular diffusion, advection, planet/star geometry.
+Schema: <a class="reference internal" href="api.html#neovulcan_config.AtmosphereConfig" title="neovulcan_config.AtmosphereConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">neovulcan_config.AtmosphereConfig</span></code></a>.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 12.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">atm_base</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Bulk gas. One of <code class="docutils literal notranslate"><span class="pre">&quot;H2&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;N2&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;O2&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;CO2&quot;</span></code>.
+Selects the binary molecular-diffusion and thermal-diffusion
+tables. Default <code class="docutils literal notranslate"><span class="pre">&quot;N2&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rocky</span></code></p></td>
+<td><p>bool</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code> for rocky planets (surface gravity is used);
+<code class="docutils literal notranslate"><span class="pre">false</span></code> for gas giants. Default <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nz</span></code></p></td>
+<td><p>int</p></td>
+<td><p><strong>Required.</strong> Number of vertical layers (<code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">0</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">P_b</span></code></p></td>
+<td><p>float</p></td>
+<td><p><strong>Required.</strong> Pressure at the bottom of the model
+(dyn cm<sup>-2</sup>, <code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">0</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">P_t</span></code></p></td>
+<td><p>float</p></td>
+<td><p><strong>Required.</strong> Pressure at the top of the model
+(dyn cm<sup>-2</sup>, <code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">0</span></code>). Must satisfy <code class="docutils literal notranslate"><span class="pre">P_t</span> <span class="pre">&lt;</span> <span class="pre">P_b</span></code> (the
+validator enforces this).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_Kzz</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Include eddy diffusion. Default <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_moldiff</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Include molecular diffusion (with thermal-diffusion drift).
+Default <code class="docutils literal notranslate"><span class="pre">true</span></code>. Required for <code class="docutils literal notranslate"><span class="pre">solver.ode_solver</span> <span class="pre">=</span> <span class="pre">&quot;Rodas3&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_vm_mol</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Alternative mixing-length parameterisation in place of
+molecular diffusion. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_vz</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Include vertical advection. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">atm_type</span></code></p></td>
+<td><p>str</p></td>
+<td><p>How <span class="math notranslate nohighlight">\(T(P)\)</span> is specified: <code class="docutils literal notranslate"><span class="pre">&quot;isothermal&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;analytical&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;file&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;vulcan_ini&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;table&quot;</span></code>.
+Default <code class="docutils literal notranslate"><span class="pre">&quot;file&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Kzz_prof</span></code></p></td>
+<td><p>str</p></td>
+<td><p>How <span class="math notranslate nohighlight">\(\Kzz(P)\)</span> is specified: <code class="docutils literal notranslate"><span class="pre">&quot;const&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;file&quot;</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">&quot;Pfunc&quot;</span></code> (constant below <code class="docutils literal notranslate"><span class="pre">K_p_lev</span></code> and
+<span class="math notranslate nohighlight">\(P^{-0.4}\)</span> above). Default <code class="docutils literal notranslate"><span class="pre">&quot;file&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">K_max</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Plateau value of <span class="math notranslate nohighlight">\(\Kzz\)</span> (cm<sup>2</sup>s<sup>-1</sup>) used
+with <code class="docutils literal notranslate"><span class="pre">Kzz_prof</span> <span class="pre">=</span> <span class="pre">&quot;Pfunc&quot;</span></code>. Default <code class="docutils literal notranslate"><span class="pre">1.0e5</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">K_p_lev</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Transition pressure (bar) where <code class="docutils literal notranslate"><span class="pre">Kzz_prof</span> <span class="pre">=</span> <span class="pre">&quot;Pfunc&quot;</span></code> switches
+from constant to <span class="math notranslate nohighlight">\(P^{-0.4}\)</span> scaling. Default <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">K_deep</span></code></p></td>
+<td><p>float, optional</p></td>
+<td><p>Lower-atmosphere plateau value used by some <code class="docutils literal notranslate"><span class="pre">Kzz_prof</span></code>
+extensions. Omit to disable.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">vz_prof</span></code></p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;const&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;file&quot;</span></code>. Default <code class="docutils literal notranslate"><span class="pre">&quot;const&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gs</span></code></p></td>
+<td><p>float</p></td>
+<td><p><strong>Required.</strong> Surface gravity (cm s<sup>-2</sup>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Tiso</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Isothermal temperature (K), only read when
+<code class="docutils literal notranslate"><span class="pre">atm_type</span> <span class="pre">=</span> <span class="pre">&quot;isothermal&quot;</span></code>. Default <code class="docutils literal notranslate"><span class="pre">1000.0</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">para_warm</span></code></p></td>
+<td><p>list[float]</p></td>
+<td><p><span class="math notranslate nohighlight">\((T_\mathrm{int}, T_\mathrm{irr}, \kappa_L, \kappa_S,
+\beta_S, \beta_L)\)</span> parameters for the analytical T–P profile of
+Heng et al. (2014). Six elements; default
+<code class="docutils literal notranslate"><span class="pre">[120,</span> <span class="pre">1500,</span> <span class="pre">0.1,</span> <span class="pre">0.02,</span> <span class="pre">1,</span> <span class="pre">1]</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">para_anaTP</span></code></p></td>
+<td><p>list[float], optional</p></td>
+<td><p>Same six parameters used when <code class="docutils literal notranslate"><span class="pre">atm_type</span> <span class="pre">=</span> <span class="pre">&quot;analytical&quot;</span></code>. If
+omitted it is aliased to <code class="docutils literal notranslate"><span class="pre">para_warm</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">const_Kzz</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Constant <span class="math notranslate nohighlight">\(\Kzz\)</span> (cm<sup>2</sup>s<sup>-1</sup>) used when
+<code class="docutils literal notranslate"><span class="pre">Kzz_prof</span> <span class="pre">=</span> <span class="pre">&quot;const&quot;</span></code>. Default <code class="docutils literal notranslate"><span class="pre">1.0e10</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">const_vz</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Constant vertical wind (cm s<sup>-1</sup>) used when
+<code class="docutils literal notranslate"><span class="pre">vz_prof</span> <span class="pre">=</span> <span class="pre">&quot;const&quot;</span></code>. Default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">update_frq</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Number of steps between updates of <span class="math notranslate nohighlight">\(\mathrm{d}z\)</span> and
+<span class="math notranslate nohighlight">\(\mathrm{d}z_i\)</span> due to changes in the mean molecular
+weight. Default <code class="docutils literal notranslate"><span class="pre">100</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">r_star</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Stellar radius in <span class="math notranslate nohighlight">\(R_\odot\)</span>. Default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Rp</span></code></p></td>
+<td><p>float</p></td>
+<td><p><strong>Required.</strong> Planetary radius (cm).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">orbit_radius</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Planet–star distance (AU). Default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sl_angle_deg</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Solar zenith angle in <strong>degrees</strong> (the conventional dayside
+average is 58°). Default <code class="docutils literal notranslate"><span class="pre">58</span></code>. The radian value
+<code class="docutils literal notranslate"><span class="pre">sl_angle</span> <span class="pre">=</span> <span class="pre">math.radians(sl_angle_deg)</span></code> is exposed as a derived
+property on the config object for convenience.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">f_diurnal</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Diurnal-averaging factor applied to all photolysis rates
+(0.5 for an Earth-like rotator, 1.0 for a tidally-locked planet).
+Default <code class="docutils literal notranslate"><span class="pre">0.5</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="photochemistry">
+<h2><code class="docutils literal notranslate"><span class="pre">[photochemistry]</span></code><a class="headerlink" href="#photochemistry" title="Link to this heading">¶</a></h2>
+<p>Photochemistry and the radiative-transfer backend used to compute the
+actinic flux.
+Schema: <a class="reference internal" href="api.html#neovulcan_config.PhotochemConfig" title="neovulcan_config.PhotochemConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">neovulcan_config.PhotochemConfig</span></code></a>.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 12.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_photo</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Include photochemistry. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_ion</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Include photoionisation chemistry. Requires <code class="docutils literal notranslate"><span class="pre">use_photo</span> <span class="pre">=</span> <span class="pre">true</span></code>
+(the validator rejects <code class="docutils literal notranslate"><span class="pre">use_ion</span> <span class="pre">=</span> <span class="pre">true</span></code> otherwise).
+Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">scat_sp</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p>Bulk gases that contribute Rayleigh scattering (e.g.
+<code class="docutils literal notranslate"><span class="pre">[&quot;H2&quot;,</span> <span class="pre">&quot;He&quot;]</span></code> for hot Jupiters, <code class="docutils literal notranslate"><span class="pre">[&quot;N2&quot;,</span> <span class="pre">&quot;O2&quot;]</span></code> for Earth).
+Empty by default.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">T_cross_sp</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p>Species for which temperature-dependent UV cross-sections are
+loaded. Currently available: CO<sub>2</sub>, H<sub>2</sub>O,
+NH<sub>3</sub>, SH, H<sub>2</sub>S, SO<sub>2</sub>, S<sub>2</sub>,
+COS, CS<sub>2</sub>. Start-up cost is noticeably higher when this
+list is non-empty.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">edd</span></code></p></td>
+<td><p>float</p></td>
+<td><p>First Eddington coefficient <span class="math notranslate nohighlight">\(\epsilon\)</span> used by the
+two-stream backend to convert the diffuse flux to actinic units.
+Default <code class="docutils literal notranslate"><span class="pre">0.5</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dbin1</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Wavelength bin width in the VUV (nm), below <code class="docutils literal notranslate"><span class="pre">dbin_12trans</span></code>.
+Default <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dbin2</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Wavelength bin width in the MUV/NUV (nm), above
+<code class="docutils literal notranslate"><span class="pre">dbin_12trans</span></code>. Default <code class="docutils literal notranslate"><span class="pre">2.0</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dbin_12trans</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Transition wavelength (nm) where the bin width changes from
+<code class="docutils literal notranslate"><span class="pre">dbin1</span></code> to <code class="docutils literal notranslate"><span class="pre">dbin2</span></code>. Default <code class="docutils literal notranslate"><span class="pre">240.0</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ini_update_photo_frq</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Number of time steps between actinic-flux updates while the
+chemistry is still evolving rapidly. Default <code class="docutils literal notranslate"><span class="pre">100</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">final_update_photo_frq</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Number of time steps between actinic-flux updates once the
+chemistry is near steady state. Default <code class="docutils literal notranslate"><span class="pre">5</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rt_scheme</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Radiative-transfer backend. <code class="docutils literal notranslate"><span class="pre">&quot;two-stream&quot;</span></code> (default) uses the
+delta-Eddington solver; <code class="docutils literal notranslate"><span class="pre">&quot;disort&quot;</span></code> uses the DisORT++ Python
+bindings. See <a class="reference internal" href="numerics.html"><span class="doc">Numerical methods</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">surface_albedo</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Lambertian surface albedo at the lower boundary. Only honoured by
+the DisORT++ backend. Default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">disort_nstr</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Number of streams (Gauss–Legendre points) used by the DisORT++
+backend. Higher = more accurate angular discretisation but
+<span class="math notranslate nohighlight">\(\mathcal{O}(n_\mathrm{str}^{\,3})\)</span> more expensive per
+layer. Default <code class="docutils literal notranslate"><span class="pre">8</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="boundary-conditions">
+<h2><code class="docutils literal notranslate"><span class="pre">[boundary_conditions]</span></code><a class="headerlink" href="#boundary-conditions" title="Link to this heading">¶</a></h2>
+<p>Top and bottom boundary conditions.
+Schema: <a class="reference internal" href="api.html#neovulcan_config.BoundaryConfig" title="neovulcan_config.BoundaryConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">neovulcan_config.BoundaryConfig</span></code></a>.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 12.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_topflux</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Apply a top-of-atmosphere flux from <code class="docutils literal notranslate"><span class="pre">paths.top_BC_flux_file</span></code>.
+Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_botflux</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Apply a surface flux from <code class="docutils literal notranslate"><span class="pre">paths.bot_BC_flux_file</span></code>.
+Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_fix_sp_bot</span></code></p></td>
+<td><p>dict[str, float]</p></td>
+<td><p>Fixed mixing ratios at the bottom boundary
+(e.g. <code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">H2O</span> <span class="pre">=</span> <span class="pre">0.0143,</span> <span class="pre">CO2</span> <span class="pre">=</span> <span class="pre">4.0e-4</span> <span class="pre">}</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">diff_esc</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p>Species treated with the diffusion-limited escape flux at the
+top boundary. Default <code class="docutils literal notranslate"><span class="pre">[&quot;H&quot;]</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_flux</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Upper limit (cm<sup>-2</sup>s<sup>-1</sup>) for the escape flux.
+Default <code class="docutils literal notranslate"><span class="pre">1.0e13</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_sat_surfaceH2O</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Use a surface-temperature-controlled water saturation as the
+bottom boundary for H<sub>2</sub>O. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_fix_H2He</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Pin the H<sub>2</sub>/He ratio at the lower boundary. Useful for
+deep hot-Jupiter columns where the H<sub>2</sub>/He inventory must
+not drift. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">loss_ex</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p>Species excluded from the element-conservation diagnostic
+(useful for surface sinks that legitimately consume mass).
+Default <code class="docutils literal notranslate"><span class="pre">[]</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="condensation">
+<h2><code class="docutils literal notranslate"><span class="pre">[condensation]</span></code><a class="headerlink" href="#condensation" title="Link to this heading">¶</a></h2>
+<p>Condensation, evaporation and particle settling.
+Schema: <a class="reference internal" href="api.html#neovulcan_config.CondensationConfig" title="neovulcan_config.CondensationConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">neovulcan_config.CondensationConfig</span></code></a>.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 12.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_condense</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Enable condensation/evaporation reactions. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_settling</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Apply Stokes settling to condensed species. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_relax</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p>Species advanced by implicit relaxation instead of the global
+Rosenbrock step (typically <code class="docutils literal notranslate"><span class="pre">[&quot;H2O&quot;,</span> <span class="pre">&quot;H2SO4&quot;]</span></code>). Default <code class="docutils literal notranslate"><span class="pre">[]</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">humidity</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Relative humidity for water vapour. Default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">r_p</span></code></p></td>
+<td><p>dict[str, float]</p></td>
+<td><p>Particle radius (cm) keyed by condensate species (e.g.
+<code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">H2O_l_s</span> <span class="pre">=</span> <span class="pre">1.0e-2</span> <span class="pre">}</span></code>). Set in sub-table
+<code class="docutils literal notranslate"><span class="pre">[condensation.r_p]</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rho_p</span></code></p></td>
+<td><p>dict[str, float]</p></td>
+<td><p>Particle density (g cm<sup>-3</sup>) keyed by condensate species.
+Set in sub-table <code class="docutils literal notranslate"><span class="pre">[condensation.rho_p]</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">start_conden_time</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Simulation time (s) at which condensation is switched on.
+Default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stop_conden_time</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Simulation time (s) after which condensation is switched off.
+Default <code class="docutils literal notranslate"><span class="pre">5.0e8</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">condense_sp</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p>Condensable gas species. Default <code class="docutils literal notranslate"><span class="pre">[]</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">non_gas_sp</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p>Names of the corresponding condensate species (e.g.
+<code class="docutils literal notranslate"><span class="pre">[&quot;H2O_l_s&quot;,</span> <span class="pre">&quot;H2SO4_l&quot;]</span></code>). Default <code class="docutils literal notranslate"><span class="pre">[]</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fix_species</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p>Species frozen after <code class="docutils literal notranslate"><span class="pre">fix_species_time</span></code>. Default <code class="docutils literal notranslate"><span class="pre">[]</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fix_species_time</span></code></p></td>
+<td><p>float, optional</p></td>
+<td><p>Simulation time (s) after which the species in <code class="docutils literal notranslate"><span class="pre">fix_species</span></code>
+are pinned at their current values. If omitted, aliased to
+<code class="docutils literal notranslate"><span class="pre">stop_conden_time</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fix_species_from_coldtrap_lev</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Only pin species below the cold-trap level. Default <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_ini_cold_trap</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Apply a cold trap to the initial state. Default <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="solver">
+<h2><code class="docutils literal notranslate"><span class="pre">[solver]</span></code><a class="headerlink" href="#solver" title="Link to this heading">¶</a></h2>
+<p>ODE integrator, step-size controller, convergence diagnostics, optional
+Newton finisher.
+Schema: <a class="reference internal" href="api.html#neovulcan_config.SolverConfig" title="neovulcan_config.SolverConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">neovulcan_config.SolverConfig</span></code></a>.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 12.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ode_solver</span></code></p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;Ros2&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;Rodas3&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;ODESolver&quot;</span></code> (case-sensitive).
+Default <code class="docutils literal notranslate"><span class="pre">&quot;Ros2&quot;</span></code>. <code class="docutils literal notranslate"><span class="pre">&quot;Rodas3&quot;</span></code> requires
+<code class="docutils literal notranslate"><span class="pre">atmosphere.use_moldiff</span> <span class="pre">=</span> <span class="pre">true</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_pi_controller</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Use a PI step-size controller instead of the default integrating
+controller. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_print_prog</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Print a progress line every <code class="docutils literal notranslate"><span class="pre">print_prog_num</span></code> steps. Default
+<code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_print_delta</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Print the per-step truncation error. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">print_prog_num</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Progress-print frequency in steps. Default <code class="docutils literal notranslate"><span class="pre">500</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dttry</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Initial time step (s). Default <code class="docutils literal notranslate"><span class="pre">1.0e-10</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">trun_min</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Minimum total integration time (s). Default <code class="docutils literal notranslate"><span class="pre">1.0e2</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">runtime</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Maximum total integration time (s). Default <code class="docutils literal notranslate"><span class="pre">1.0e22</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dt_min</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Hard lower bound on the time step (s). Default <code class="docutils literal notranslate"><span class="pre">1.0e-14</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dt_max</span></code></p></td>
+<td><p>float, optional</p></td>
+<td><p>Hard upper bound on the time step (s). If omitted, derived as
+<code class="docutils literal notranslate"><span class="pre">runtime</span> <span class="pre">*</span> <span class="pre">1e-5</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dt_var_max</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Maximum per-step time-step growth factor. Default <code class="docutils literal notranslate"><span class="pre">2.0</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dt_var_min</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Minimum per-step time-step shrink factor. Default <code class="docutils literal notranslate"><span class="pre">0.5</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">count_min</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Minimum number of steps before convergence checks fire. Default
+<code class="docutils literal notranslate"><span class="pre">120</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">count_max</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Hard upper bound on the number of steps. Default <code class="docutils literal notranslate"><span class="pre">40000</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">atol</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Absolute tolerance (cm<sup>-3</sup>). Number densities below this
+are excluded from the error norms. Default <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mtol</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Relative-tolerance floor used by the step-size controller.
+Default <code class="docutils literal notranslate"><span class="pre">1.0e-22</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mtol_conv</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Relative-tolerance floor used by the convergence check. Default
+<code class="docutils literal notranslate"><span class="pre">1.0e-16</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pos_cut</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Clip small positive values to zero. Default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nega_cut</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Threshold below which negative updates trigger a step rejection.
+Default <code class="docutils literal notranslate"><span class="pre">-1.0</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">loss_eps</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Element-conservation tolerance used by the adaptive <code class="docutils literal notranslate"><span class="pre">rtol</span></code>
+controller. Default <code class="docutils literal notranslate"><span class="pre">1.0e12</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">yconv_cri</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Relative change <span class="math notranslate nohighlight">\(\Delta\hat n\)</span> threshold (the
+<span class="math notranslate nohighlight">\(\delta\)</span> in <a class="reference internal" href="numerics.html"><span class="doc">Numerical methods</span></a>). Default <code class="docutils literal notranslate"><span class="pre">0.01</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">slope_cri</span></code></p></td>
+<td><p>float</p></td>
+<td><p><span class="math notranslate nohighlight">\(\Delta\hat n / \Delta\tau\)</span> threshold (the <span class="math notranslate nohighlight">\(\epsilon\)</span>
+in <a class="reference internal" href="numerics.html"><span class="doc">Numerical methods</span></a>). Default <code class="docutils literal notranslate"><span class="pre">1.0e-4</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">yconv_min</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Relaxed alternative for <code class="docutils literal notranslate"><span class="pre">yconv_cri</span></code>. Default <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">flux_cri</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Relative change of the actinic flux threshold. Default <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">flux_atol</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Absolute tolerance for the actinic flux
+(photons cm<sup>-2</sup>s<sup>-1</sup>nm<sup>-1</sup>). Default
+<code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">st_factor</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Fraction of the integration time used for the steady-state
+window (default 0.5 means the last half is examined).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">conv_step</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Hard cap on the number of past steps used in the convergence
+check. Default <code class="docutils literal notranslate"><span class="pre">500</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">conver_ignore</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p>Species excluded from the convergence diagnostic (used for
+species whose noise level dominates the dominant-<span class="math notranslate nohighlight">\(\Delta\)</span>
+test but does not matter for the result). Default <code class="docutils literal notranslate"><span class="pre">[]</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rtol</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Relative tolerance <span class="math notranslate nohighlight">\(\mathcal{T}\)</span> for the step-size
+controller. Default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">post_conden_rtol</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Value of <code class="docutils literal notranslate"><span class="pre">rtol</span></code> switched to after <code class="docutils literal notranslate"><span class="pre">fix_species_time</span></code>. Default
+<code class="docutils literal notranslate"><span class="pre">0.05</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_adapt_rtol</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Adapt <code class="docutils literal notranslate"><span class="pre">rtol</span></code> dynamically based on element-conservation drift.
+Default <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rtol_min</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Lower bound for the adaptive <code class="docutils literal notranslate"><span class="pre">rtol</span></code>. Default <code class="docutils literal notranslate"><span class="pre">0.02</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rtol_max</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Upper bound for the adaptive <code class="docutils literal notranslate"><span class="pre">rtol</span></code>. Default <code class="docutils literal notranslate"><span class="pre">2.5</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_newton_finisher</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Enable the optional damped-Newton tail described in
+<a class="reference internal" href="numerics.html"><span class="doc">Numerical methods</span></a>. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">newton_switch_dy</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Per-step fractional change below which the Newton finisher takes
+over. Default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">newton_cooldown</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Number of Rosenbrock steps that must elapse between successive
+Newton firings. Default <code class="docutils literal notranslate"><span class="pre">200</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">newton_max_iter</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Maximum number of Newton iterations per firing. Default <code class="docutils literal notranslate"><span class="pre">20</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">newton_res_tol</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Residual norm at which the Newton finisher considers itself
+converged. Default <code class="docutils literal notranslate"><span class="pre">1.0e-6</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">newton_alpha_min</span></code></p></td>
+<td><p>float</p></td>
+<td><p>Smallest damping factor allowed by the line-search inside the
+Newton finisher. Default <code class="docutils literal notranslate"><span class="pre">1.0e-3</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="output">
+<h2><code class="docutils literal notranslate"><span class="pre">[output]</span></code><a class="headerlink" href="#output" title="Link to this heading">¶</a></h2>
+<p>Pickle file and evolution-history options.
+Schema: <a class="reference internal" href="api.html#neovulcan_config.OutputConfig" title="neovulcan_config.OutputConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">neovulcan_config.OutputConfig</span></code></a>.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 12.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">output_humanread</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Also write a human-readable text dump of the final state.
+Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_shark</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Easter egg.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">save_evolution</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Store the abundance and time history in the output file.
+Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">save_evo_frq</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Number of steps between evolution-history samples. Default
+<code class="docutils literal notranslate"><span class="pre">10</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">y_time_freq</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Number of steps between snapshots stored in the evolution
+arrays. Default <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="plotting">
+<h2><code class="docutils literal notranslate"><span class="pre">[plotting]</span></code><a class="headerlink" href="#plotting" title="Link to this heading">¶</a></h2>
+<p>Live-plot, end-of-run plot, and movie options.
+Schema: <a class="reference internal" href="api.html#neovulcan_config.PlottingConfig" title="neovulcan_config.PlottingConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">neovulcan_config.PlottingConfig</span></code></a>.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 12.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">plot_TP</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Plot the T–P profile at the start of the run. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_live_plot</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Show a live matplotlib plot of mixing-ratio profiles during
+integration. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_live_flux</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Show a live plot of the actinic flux. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_plot_end</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Plot mixing ratios after the integration finishes. Default
+<code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_plot_evo</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Plot the time evolution at each layer at the end. Default
+<code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_save_movie</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Save the live-plot frames to <code class="docutils literal notranslate"><span class="pre">paths.movie_dir</span></code> for later
+assembly into a movie. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_flux_movie</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Save live-flux frames. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">plot_height</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Use the altitude (cm) instead of pressure on the vertical axis.
+Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_PIL</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>Use the Pillow library to composite live plots; fall back to a
+simpler renderer if Pillow is unavailable. Default <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">live_plot_frq</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Number of steps between live-plot updates. Default <code class="docutils literal notranslate"><span class="pre">10</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">save_movie_rate</span></code></p></td>
+<td><p>int, optional</p></td>
+<td><p>Number of steps between movie-frame saves. If omitted, aliased
+to <code class="docutils literal notranslate"><span class="pre">live_plot_frq</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">plot_spec</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p>Species to include in live plots. Default <code class="docutils literal notranslate"><span class="pre">[]</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="cross-section-validators">
+<h2>Cross-section validators<a class="headerlink" href="#cross-section-validators" title="Link to this heading">¶</a></h2>
+<p>A small number of consistency rules are enforced after every load and
+after every programmatic override:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">atmosphere.P_t</span> <span class="pre">&lt;</span> <span class="pre">atmosphere.P_b</span></code> — the top pressure must be
+strictly smaller than the bottom one.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">atmosphere.para_warm</span></code> and <code class="docutils literal notranslate"><span class="pre">atmosphere.para_anaTP</span></code> must each have
+exactly six elements.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">photochemistry.use_ion</span> <span class="pre">=</span> <span class="pre">true</span></code> requires
+<code class="docutils literal notranslate"><span class="pre">photochemistry.use_photo</span> <span class="pre">=</span> <span class="pre">true</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">solver.ode_solver</span> <span class="pre">=</span> <span class="pre">&quot;Rodas3&quot;</span></code> requires
+<code class="docutils literal notranslate"><span class="pre">atmosphere.use_moldiff</span> <span class="pre">=</span> <span class="pre">true</span></code>.</p></li>
+</ul>
+<p>These are all expressed as Pydantic validators in
+<code class="docutils literal notranslate"><span class="pre">src/neovulcan_config.py</span></code>; their error messages identify the
+offending field on failure.</p>
+</section>
+<section id="practical-advice">
+<h2>Practical advice<a class="headerlink" href="#practical-advice" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Start from one of the example configurations in <code class="docutils literal notranslate"><span class="pre">cfg_examples/</span></code>
+rather than from scratch; the boundary conditions, network choice,
+and <span class="math notranslate nohighlight">\(\Kzz\)</span> profile of a working setup are difficult to guess.</p></li>
+<li><p>For hot atmospheres (<span class="math notranslate nohighlight">\(T \gtrsim 1000\)</span> K), the default
+<code class="docutils literal notranslate"><span class="pre">elements.ini_mix</span> <span class="pre">=</span> <span class="pre">&quot;EQ&quot;</span></code> together with the SNCHO photo network is
+the recommended starting point.</p></li>
+<li><p>For terrestrial atmospheres, set <code class="docutils literal notranslate"><span class="pre">atmosphere.rocky</span> <span class="pre">=</span> <span class="pre">true</span></code>, choose
+<code class="docutils literal notranslate"><span class="pre">atmosphere.atm_base</span></code> to match the bulk gas, use
+<code class="docutils literal notranslate"><span class="pre">elements.ini_mix</span> <span class="pre">=</span> <span class="pre">&quot;const_mix&quot;</span></code> with realistic surface mixing
+ratios, and switch on condensation.</p></li>
+<li><p>If the solver oscillates between accepting and rejecting steps,
+reduce <code class="docutils literal notranslate"><span class="pre">solver.atol</span></code> (a smaller absolute tolerance is more
+permissive in this code, because trace species below <code class="docutils literal notranslate"><span class="pre">atol</span></code> are not
+used to judge the step size).</p></li>
+<li><p>If the run terminates with <code class="docutils literal notranslate"><span class="pre">end_case</span> <span class="pre">!=</span> <span class="pre">1</span></code> even after
+<code class="docutils literal notranslate"><span class="pre">solver.count_max</span></code> steps, the most common causes are (i) a poorly
+conditioned boundary condition, (ii) a missing reaction in the
+network that should close a fast cycle, or (iii) a <span class="math notranslate nohighlight">\(\Kzz\)</span>
+profile with very large gradients that interact badly with the
+finite-difference stencil.</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="code_architecture.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Code architecture</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="numerics.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Numerical methods</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Shang-Min Tsai and contributors
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Configuration reference</a><ul>
+<li><a class="reference internal" href="#network"><code class="docutils literal notranslate"><span class="pre">[network]</span></code></a></li>
+<li><a class="reference internal" href="#paths"><code class="docutils literal notranslate"><span class="pre">[paths]</span></code></a></li>
+<li><a class="reference internal" href="#elements"><code class="docutils literal notranslate"><span class="pre">[elements]</span></code></a></li>
+<li><a class="reference internal" href="#atmosphere"><code class="docutils literal notranslate"><span class="pre">[atmosphere]</span></code></a></li>
+<li><a class="reference internal" href="#photochemistry"><code class="docutils literal notranslate"><span class="pre">[photochemistry]</span></code></a></li>
+<li><a class="reference internal" href="#boundary-conditions"><code class="docutils literal notranslate"><span class="pre">[boundary_conditions]</span></code></a></li>
+<li><a class="reference internal" href="#condensation"><code class="docutils literal notranslate"><span class="pre">[condensation]</span></code></a></li>
+<li><a class="reference internal" href="#solver"><code class="docutils literal notranslate"><span class="pre">[solver]</span></code></a></li>
+<li><a class="reference internal" href="#output"><code class="docutils literal notranslate"><span class="pre">[output]</span></code></a></li>
+<li><a class="reference internal" href="#plotting"><code class="docutils literal notranslate"><span class="pre">[plotting]</span></code></a></li>
+<li><a class="reference internal" href="#cross-section-validators">Cross-section validators</a></li>
+<li><a class="reference internal" href="#practical-advice">Practical advice</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=1b390748"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    <script>window.MathJax = {"tex": {"macros": {"d": "\\mathrm{d}", "e": "\\mathrm{e}", "Dz": "\\partial_z", "Kzz": "K_{zz}", "Dzz": "D_{zz}"}}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    </body>
+</html>

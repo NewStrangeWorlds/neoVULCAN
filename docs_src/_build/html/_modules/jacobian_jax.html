@@ -1,0 +1,896 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+
+    <!-- Generated with Sphinx 8.1.3 and Furo 2025.12.19 -->
+        <title>jacobian_jax - neoVULCAN documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">neoVULCAN documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <span class="sidebar-brand-text">neoVULCAN documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../running.html">Running neoVULCAN</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Theory</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../math_background.html">Mathematical background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../numerics.html">Numerical methods</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../config_reference.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../code_architecture.html">Code architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Appendix</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../references.html">References</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for jacobian_jax</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;JAX-side banded LHS Jacobian assembly for the Rosenbrock-2 solver.</span>
+
+<span class="sd">The previous implementation in :class:`ODESolver.lhs_jac_banded` called the</span>
+<span class="sd">JAX-jitted chemistry Jacobian (`chem_jac_blocks`), then performed ~70 lines</span>
+<span class="sd">of Python+NumPy index arithmetic per step to scatter chemistry blocks into</span>
+<span class="sd">banded form, add the c0 identity, and subtract eddy + molecular diffusion</span>
+<span class="sd">terms (including bottom/top boundary conditions).</span>
+
+<span class="sd">This module fuses all of that into a single JIT-compiled JAX kernel.  The</span>
+<span class="sd">caller passes flat arrays; the kernel returns the banded matrix `ab` of</span>
+<span class="sd">shape `(2*bw+1, nz*ni)` (with `bw = 2*ni-1`) ready for</span>
+<span class="sd">`scipy.linalg.solve_banded`.</span>
+
+<span class="sd">Numerical layout matches the NumPy implementation exactly so the regression</span>
+<span class="sd">test gates correctness end-to-end.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">chemistry_jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">ni</span><span class="p">,</span> <span class="n">_chemdf_single</span><span class="p">,</span> <span class="n">_jac_vmap</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">phy_const</span><span class="w"> </span><span class="kn">import</span> <span class="n">kb</span><span class="p">,</span> <span class="n">Navo</span>
+
+
+<span class="c1"># ===========================================================================</span>
+<span class="c1"># Log-space chemistry RHS and Jacobian</span>
+<span class="c1">#</span>
+<span class="c1"># DORMANT INFRASTRUCTURE: validated to machine precision against the manual</span>
+<span class="c1"># chain-rule transform of the linear-y chemistry Jacobian.  Currently NOT</span>
+<span class="c1"># wired into the integration loop — the log-space integrator (Tier 2.2 Phase</span>
+<span class="c1"># C) was reverted after discovering that the chain rule cancels the natural</span>
+<span class="c1"># implicit-damping of first-order chemistry loss (see plan / commit log).</span>
+<span class="c1"># Kept here as ready-to-use kernels for the next iteration of the stiffness</span>
+<span class="c1"># work (likely exponential Rosenbrock, where the linear stiff part is</span>
+<span class="c1"># treated exactly and these kernels may still be useful for the remaining</span>
+<span class="c1"># nonlinear part if a log-space variant is chosen).</span>
+<span class="c1">#</span>
+<span class="c1"># Math reference (chain rule):</span>
+<span class="c1">#     g(x) = chemdf(exp(x), M, k) / exp(x)</span>
+<span class="c1"># JAX autodiff (jax.jacfwd) applies the chain rule automatically — no</span>
+<span class="c1"># manual J_x = J_y * y_j/y_i transform in user code.  The resulting</span>
+<span class="c1"># log-space Jacobian has the same sparsity as the linear-y one.</span>
+<span class="c1"># ===========================================================================</span>
+
+<span class="c1"># x is clamped on both sides to keep exp(x) inside float64 range while still</span>
+<span class="c1"># allowing the integrator to take large transient log-steps that would</span>
+<span class="c1"># otherwise be rejected.  -300 → exp ≈ 5e-131 (well below any physical</span>
+<span class="c1"># concentration), +200 → exp ≈ 7e86 (well above any physical concentration</span>
+<span class="c1"># in giant-planet deep atmospheres).  See plan section &quot;Edge cases&quot;.</span>
+<span class="n">_X_FLOOR</span> <span class="o">=</span> <span class="o">-</span><span class="mf">300.0</span>
+<span class="n">_X_CEIL</span>  <span class="o">=</span>  <span class="mf">200.0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_chemdf_logy_single</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-cell log-space chemistry RHS: g(x) = chemdf(exp(x)) / exp(x).</span>
+
+<span class="sd">    ``x`` is clipped to ``[_X_FLOOR, _X_CEIL]`` to guarantee finite exp(x).</span>
+<span class="sd">    Inside the autodiff this means species pinned at the clamp see zero</span>
+<span class="sd">    Jacobian sensitivity — which correctly reflects &quot;this iterate is in</span>
+<span class="sd">    the unphysical regime and the integrator&#39;s step controller should</span>
+<span class="sd">    reject it.&quot;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x_safe</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">_X_FLOOR</span><span class="p">,</span> <span class="n">_X_CEIL</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">x_safe</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_chemdf_single</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="o">/</span> <span class="n">y</span>
+
+
+<span class="n">_chemdf_logy_vmap</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">_chemdf_logy_single</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">chemdf_logy_jax</span>   <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">_chemdf_logy_vmap</span><span class="p">)</span>
+
+<span class="n">_jac_logy_single</span>  <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jacfwd</span><span class="p">(</span><span class="n">_chemdf_logy_single</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">_jac_logy_vmap</span>    <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">_jac_logy_single</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">_jac_logy_jit</span>     <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">_jac_logy_vmap</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="chemdf_logy">
+<a class="viewcode-back" href="../api.html#jacobian_jax.chemdf_logy">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">chemdf_logy</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k_dict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;NumPy-facing wrapper for the log-space chemistry RHS.</span>
+
+<span class="sd">    Mirrors :func:`chemistry_jax.chemdf` but accepts the log-space state</span>
+<span class="sd">    ``x = log(y)`` and returns ``chemdf(exp(x), M, k) / exp(x)`` as a</span>
+<span class="sd">    NumPy array.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">chemistry_jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">k_dict_to_array</span>
+    <span class="n">k_arr</span> <span class="o">=</span> <span class="n">k_dict_to_array</span><span class="p">(</span><span class="n">k_dict</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">chemdf_logy_jax</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">),</span>
+                                       <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">M</span><span class="p">),</span>
+                                       <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">k_arr</span><span class="p">)))</span></div>
+
+
+
+<span class="c1"># ===========================================================================</span>
+<span class="c1"># Per-species first-order loss rates k_loss_i^j and the phi_1 function.</span>
+<span class="c1">#</span>
+<span class="c1"># DORMANT INFRASTRUCTURE intended for a future exponential Rosenbrock</span>
+<span class="c1"># integrator.  An exp-Euler prototype was attempted this session and shown</span>
+<span class="c1"># *not* to work for VULCAN because diffusion needs implicit treatment</span>
+<span class="c1"># (CFL-unstable when handled explicitly at the dt sizes the chemistry would</span>
+<span class="c1"># allow).  See plan file for the full IMEX exp-Rosenbrock scope.</span>
+<span class="c1">#</span>
+<span class="c1"># What stays here as ready-to-use building blocks:</span>
+<span class="c1">#   * chem_loss_rates(y, M, k_dict) → (nz, ni)</span>
+<span class="c1">#       The diagonal first-order loss rate per (layer, species).  Non-negative</span>
+<span class="c1">#       everywhere.  Computed from -diag(J_y_chem); validated to give the</span>
+<span class="c1">#       expected stiff value (1.7e+17 for P4O6 dimerization at deep layer 0).</span>
+<span class="c1">#   * phi_1(z) = (e^z - 1) / z, with phi_1(0) = 1</span>
+<span class="c1">#       Numerically stable; validated to machine precision from |z| ~ 1e-20</span>
+<span class="c1">#       up to z = -1e6.  Building block for any exponential integrator.</span>
+<span class="c1">#</span>
+<span class="c1"># Math reference for chem_loss_rates: for elementary chemistry, the diagonal</span>
+<span class="c1"># J_y[ii] = ∂(dn_i/dt) / ∂y_i contains exactly the contributions of</span>
+<span class="c1"># first-order loss reactions plus (rare) autocatalytic self-production.  In</span>
+<span class="c1"># neutral-species photochemistry there is no autocatalysis so the diagonal</span>
+<span class="c1"># is non-positive and `k_loss_i = -diag(J_y_chem)[i]`.</span>
+<span class="c1"># ===========================================================================</span>
+
+<span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_chem_loss_diag</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Diagonal of the chemistry Jacobian, per (layer, species).&quot;&quot;&quot;</span>
+    <span class="n">jac</span> <span class="o">=</span> <span class="n">_jac_vmap</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>                  <span class="c1"># (nz, ni, ni)</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijj-&gt;ij&#39;</span><span class="p">,</span> <span class="n">jac</span><span class="p">)</span>         <span class="c1"># (nz, ni)</span>
+
+
+<div class="viewcode-block" id="chem_loss_rates">
+<a class="viewcode-back" href="../api.html#jacobian_jax.chem_loss_rates">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">chem_loss_rates</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k_dict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return per-cell first-order loss rates k_loss_i^j as NumPy (nz, ni).</span>
+
+<span class="sd">    Computed from -diag(J_y_chem).  Clamped at 0 to guard against the rare</span>
+<span class="sd">    case of an autocatalytic production term that would make a diagonal</span>
+<span class="sd">    entry positive (no such reactions in VULCAN&#39;s NCHO/P-network, but the</span>
+<span class="sd">    clamp is cheap insurance).</span>
+
+<span class="sd">    Used by the exponential Rosenbrock integrator&#39;s diagonal phi_1</span>
+<span class="sd">    treatment of stiff first-order loss.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">chemistry_jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">k_dict_to_array</span>
+    <span class="n">k_arr</span> <span class="o">=</span> <span class="n">k_dict_to_array</span><span class="p">(</span><span class="n">k_dict</span><span class="p">)</span>
+    <span class="n">diag</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">_chem_loss_diag</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y</span><span class="p">),</span>
+                                       <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">M</span><span class="p">),</span>
+                                       <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">k_arr</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="o">-</span><span class="n">diag</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="phi_1">
+<a class="viewcode-back" href="../api.html#jacobian_jax.phi_1">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">phi_1</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;phi_1(z) = (e^z - 1) / z, with phi_1(0) = 1.</span>
+
+<span class="sd">    Numerically stable for all z: uses np.expm1 to avoid catastrophic</span>
+<span class="sd">    cancellation in the numerator, and a Taylor-series branch for very</span>
+<span class="sd">    small |z| where the direct formula&#39;s relative error still becomes</span>
+<span class="sd">    visible.  In the exp-Rosenbrock context we evaluate at z = -k_loss·dt</span>
+<span class="sd">    which is non-positive, but the implementation is general.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+    <span class="c1"># For |z| &lt; 1e-4, the direct formula loses ~4 digits of precision;</span>
+    <span class="c1"># the Taylor series 1 + z/2 + z²/6 + z³/24 is accurate to ~16 digits.</span>
+    <span class="n">small</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-4</span>
+    <span class="n">z_safe</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">small</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>  <span class="c1"># avoid 0/0 inside the direct branch</span>
+    <span class="n">direct</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">expm1</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">/</span> <span class="n">z_safe</span>
+    <span class="n">taylor</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">z</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">+</span> <span class="n">z</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">6.0</span> <span class="o">+</span> <span class="n">z</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">24.0</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">small</span><span class="p">,</span> <span class="n">taylor</span><span class="p">,</span> <span class="n">direct</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="phi_2">
+<a class="viewcode-back" href="../api.html#jacobian_jax.phi_2">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">phi_2</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;phi_2(z) = (e^z - 1 - z) / z², with phi_2(0) = 1/2.</span>
+
+<span class="sd">    The direct formula (expm1(z) - z) / z² suffers catastrophic</span>
+<span class="sd">    cancellation for |z| up to ~1e-2: expm1(z) - z ≈ z²/2 there, so we</span>
+<span class="sd">    subtract two near-equal quantities.  The Taylor branch</span>
+<span class="sd">    1/2 + z/6 + z²/24 + z³/120 + z⁴/720 is accurate to ~16 digits for</span>
+<span class="sd">    |z| &lt; 5e-2 and we keep a generous threshold (1e-2) to stay well clear</span>
+<span class="sd">    of the cancellation zone.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+    <span class="n">small</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-2</span>
+    <span class="n">z_safe</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">small</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+    <span class="n">direct</span> <span class="o">=</span> <span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">expm1</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">-</span> <span class="n">z</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">z_safe</span> <span class="o">*</span> <span class="n">z_safe</span><span class="p">)</span>
+    <span class="n">taylor</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="n">z</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">6.0</span>
+                        <span class="o">+</span> <span class="n">z</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">24.0</span>
+                               <span class="o">+</span> <span class="n">z</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">120.0</span>
+                                      <span class="o">+</span> <span class="n">z</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">720.0</span><span class="p">))))</span>
+    <span class="k">return</span> <span class="n">_np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">small</span><span class="p">,</span> <span class="n">taylor</span><span class="p">,</span> <span class="n">direct</span><span class="p">)</span></div>
+
+
+
+<span class="nd">@partial</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">,</span> <span class="n">static_argnames</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;nz&#39;</span><span class="p">,))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_lhs_jac_banded_kernel</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">c0</span><span class="p">,</span>
+                           <span class="n">dzi</span><span class="p">,</span> <span class="n">Kzz</span><span class="p">,</span> <span class="n">Dzz</span><span class="p">,</span> <span class="n">vz</span><span class="p">,</span> <span class="n">vs</span><span class="p">,</span> <span class="n">vm</span><span class="p">,</span>
+                           <span class="n">alpha</span><span class="p">,</span> <span class="n">Tco</span><span class="p">,</span> <span class="n">ms</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">Ti</span><span class="p">,</span> <span class="n">Hpi</span><span class="p">,</span>
+                           <span class="n">gas_mask</span><span class="p">,</span> <span class="n">bot_vdep</span><span class="p">,</span>
+                           <span class="n">use_botflux_flag</span><span class="p">,</span> <span class="n">thermal_flag</span><span class="p">,</span> <span class="n">vm_bot_flag</span><span class="p">,</span>
+                           <span class="n">nz</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pure-JAX assembly of the banded LHS Jacobian = c0*I - dfdy.</span>
+
+<span class="sd">    Pass c0 = 1/(r*dt) for the Rosenbrock LHS; pass c0 = 0 to obtain the</span>
+<span class="sd">    pure steady-state Jacobian -dfdy used by the Newton finisher.</span>
+
+<span class="sd">    Inputs</span>
+<span class="sd">    ------</span>
+<span class="sd">    y         : (nz, ni)        number density</span>
+<span class="sd">    M         : (nz,)           total density</span>
+<span class="sd">    k         : (nr+1, nz)      rate coefficients</span>
+<span class="sd">    c0        : scalar          identity coefficient on the main diagonal</span>
+<span class="sd">    dzi       : (nz-1,)         inter-layer spacings</span>
+<span class="sd">    Kzz       : (nz-1,)         eddy diffusion</span>
+<span class="sd">    Dzz       : (nz-1, ni)      molecular diffusion (per species);</span>
+<span class="sd">                                pass zeros to disable mol-diff (no_mol path)</span>
+<span class="sd">    vz        : (nz-1,)         vertical velocity at half-levels</span>
+<span class="sd">    vs        : (nz-1, ni)      settling velocity at half-levels (per species);</span>
+<span class="sd">                                pass zeros if settling disabled</span>
+<span class="sd">    vm        : (nz, ni)        mean-molecular-velocity advection at cell centres</span>
+<span class="sd">                                (per species); pass zeros if not used.  Caller is</span>
+<span class="sd">                                responsible for zeroing vm[0] if vm should be</span>
+<span class="sd">                                absent at the bottom (the settling_vm variant).</span>
+<span class="sd">    alpha     : (ni,)           thermal diffusion factor</span>
+<span class="sd">    Tco       : (nz,)           temperature at cell centres</span>
+<span class="sd">    ms        : (ni,)           species molecular weight</span>
+<span class="sd">    g         : (nz,)           gravity</span>
+<span class="sd">    Ti        : (nz-1,)         interface temperature</span>
+<span class="sd">    Hpi       : (nz-1,)         interface scale height</span>
+<span class="sd">    gas_mask  : (ni,)           1.0 for gas species, 0.0 for non-gas</span>
+<span class="sd">                                (use_condense=False  → all ones)</span>
+<span class="sd">    bot_vdep  : (ni,)           deposition velocities at the bottom</span>
+<span class="sd">    use_botflux_flag : 0.0 or 1.0</span>
+<span class="sd">    thermal_flag     : 0.0 or 1.0   multiplies the mol-diff thermal drift bracket</span>
+<span class="sd">                                    (-1/Hpi + ms*g/(Navo*kb*Ti) + alpha*dT/Ti).</span>
+<span class="sd">                                    Pass 1.0 for the standard thermal mol-diff;</span>
+<span class="sd">                                    pass 0.0 for the vm-advection variants where</span>
+<span class="sd">                                    the drift is encoded in vm instead.</span>
+<span class="sd">    vm_bot_flag      : 0.0 or 1.0   multiplies the vm contributions at the</span>
+<span class="sd">                                    bottom boundary (j=0).  Pass 1.0 normally;</span>
+<span class="sd">                                    pass 0.0 for the settling_vm variant where</span>
+<span class="sd">                                    vm is absent at the bottom.  (Note: this</span>
+<span class="sd">                                    zeroes only the j=0 boundary contribution;</span>
+<span class="sd">                                    vm[0] is still used in the middle-layer</span>
+<span class="sd">                                    j=1 upwind, matching the original numpy.)</span>
+<span class="sd">    nz        : static int      number of vertical layers</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bw</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">ni</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># 1. Chemistry Jacobian blocks (nz, ni, ni)</span>
+    <span class="c1">#    banded position: ab[bw + si - sj, iz*ni + sj] = -jac[iz, si, sj]</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">jac</span> <span class="o">=</span> <span class="n">_jac_vmap</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span> <span class="o">*</span> <span class="n">bw</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ni</span> <span class="o">*</span> <span class="n">nz</span><span class="p">))</span>
+    <span class="n">si</span><span class="p">,</span> <span class="n">sj</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">mgrid</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">ni</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="n">ni</span><span class="p">]</span>                <span class="c1"># (ni, ni)</span>
+    <span class="n">row_chem</span> <span class="o">=</span> <span class="n">bw</span> <span class="o">+</span> <span class="n">si</span> <span class="o">-</span> <span class="n">sj</span>                       <span class="c1"># (ni, ni)</span>
+    <span class="n">col_chem</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nz</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">ni</span> <span class="o">+</span> <span class="n">sj</span>  <span class="c1"># (nz, ni, ni)</span>
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">ab</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">row_chem</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span> <span class="n">col_chem</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="o">-</span><span class="n">jac</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># 2. Identity: add c0 to main diagonal (row bw)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">ab</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">bw</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c0</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># 3. Diffusion: assemble contributions for the three active banded</span>
+    <span class="c1">#    rows (bw, bw-ni, bw+ni) as (nz, ni) arrays, then add at the end.</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">ysum</span> <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="n">gas_mask</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>             <span class="c1"># (nz,)</span>
+
+    <span class="c1"># Upwind splits — avoid boolean masking, use clamps.</span>
+    <span class="n">vz_pos</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">vz</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>                 <span class="c1"># (vz&gt;0)*vz       (nz-1,)</span>
+    <span class="n">vz_neg</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">vz</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>                 <span class="c1"># (vz&lt;0)*vz       (nz-1,)</span>
+    <span class="n">vs_pos</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">vs</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>                 <span class="c1"># (nz-1, ni)</span>
+    <span class="n">vs_neg</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">vs</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>                 <span class="c1"># (nz-1, ni)</span>
+    <span class="n">vm_pos</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>                 <span class="c1"># (nz, ni)</span>
+    <span class="n">vm_neg</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>                 <span class="c1"># (nz, ni)</span>
+
+    <span class="n">diag_diff</span>  <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nz</span><span class="p">,</span> <span class="n">ni</span><span class="p">))</span>
+    <span class="n">upper_diff</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nz</span><span class="p">,</span> <span class="n">ni</span><span class="p">))</span>
+    <span class="n">lower_diff</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nz</span><span class="p">,</span> <span class="n">ni</span><span class="p">))</span>
+
+    <span class="c1"># ----- middle layers j = 1..nz-2 ---------------------------------</span>
+    <span class="n">j</span>      <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>                <span class="c1"># (nz-2,)</span>
+    <span class="n">dz_ave</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>          <span class="c1"># (nz-2,)</span>
+    <span class="n">Dj</span>     <span class="o">=</span> <span class="n">Dzz</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>                                <span class="c1"># (nz-2, ni)</span>
+    <span class="n">Dj1</span>    <span class="o">=</span> <span class="n">Dzz</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>                            <span class="c1"># (nz-2, ni)</span>
+
+    <span class="c1"># eddy diffusion (scalar per layer)</span>
+    <span class="n">ek_d</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dz_ave</span> <span class="o">*</span> <span class="p">(</span><span class="n">Kzz</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.</span>
+                            <span class="o">+</span> <span class="n">Kzz</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">)</span>
+            <span class="o">/</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="o">-</span> <span class="p">(</span><span class="n">vz_pos</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">vz_neg</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">)</span>
+    <span class="n">ek_u</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dz_ave</span> <span class="o">*</span> <span class="n">Kzz</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="o">-</span> <span class="n">vz_neg</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">)</span>
+    <span class="n">ek_l</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dz_ave</span> <span class="o">*</span> <span class="n">Kzz</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="o">+</span> <span class="n">vz_pos</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">)</span>
+
+    <span class="c1"># molecular diffusion (per layer × per species)</span>
+    <span class="n">inv_dza</span>  <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">dz_ave</span>
+    <span class="n">inv_dza2</span> <span class="o">=</span> <span class="n">inv_dza</span> <span class="o">/</span> <span class="mf">2.</span>
+    <span class="n">dTj</span>      <span class="o">=</span> <span class="p">(</span><span class="n">Tco</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">Tco</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+    <span class="n">dTj1</span>     <span class="o">=</span> <span class="p">(</span><span class="n">Tco</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>     <span class="o">-</span> <span class="n">Tco</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">term_j</span> <span class="o">=</span> <span class="n">thermal_flag</span> <span class="o">*</span> <span class="n">Dj</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+                   <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+                   <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">dTj</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">term_j1</span> <span class="o">=</span> <span class="n">thermal_flag</span> <span class="o">*</span> <span class="n">Dj1</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+                     <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+                     <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">dTj1</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+
+    <span class="n">md_d_sc</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="n">inv_dza</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+               <span class="o">*</span> <span class="p">(</span><span class="n">Dj</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span>
+                  <span class="o">+</span> <span class="n">Dj1</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">)</span>
+               <span class="o">/</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">md_d</span> <span class="o">=</span> <span class="n">md_d_sc</span> <span class="o">+</span> <span class="n">inv_dza2</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">term_j</span> <span class="o">-</span> <span class="n">term_j1</span><span class="p">)</span>
+
+    <span class="n">term_u</span> <span class="o">=</span> <span class="n">thermal_flag</span> <span class="o">*</span> <span class="n">Dj</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+                   <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+                   <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">dTj</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">md_u</span> <span class="o">=</span> <span class="p">(</span><span class="n">inv_dza</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dj</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+            <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+            <span class="o">+</span> <span class="n">inv_dza2</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">term_u</span><span class="p">)</span>
+
+    <span class="n">term_l</span> <span class="o">=</span> <span class="n">thermal_flag</span> <span class="o">*</span> <span class="n">Dj1</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+                    <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+                    <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">dTj1</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">md_l</span> <span class="o">=</span> <span class="p">(</span><span class="n">inv_dza</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dj1</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+            <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+            <span class="o">-</span> <span class="n">inv_dza2</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">term_l</span><span class="p">)</span>
+
+    <span class="c1"># vs (settling, interface-defined, per-species) upwind contributions.</span>
+    <span class="c1"># Indexing matches vz since vs has shape (nz-1, ni).</span>
+    <span class="n">vs_d_mid</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">vs_pos</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">vs_neg</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>   <span class="c1"># (nz-2, ni)</span>
+    <span class="n">vs_u_mid</span> <span class="o">=</span> <span class="o">-</span><span class="n">vs_neg</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="n">vs_l_mid</span> <span class="o">=</span>  <span class="n">vs_pos</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+
+    <span class="c1"># vm (cell-centred mean-molecular-velocity advection, per-species) upwind</span>
+    <span class="c1"># contributions; indexed at cell centres (vm has shape (nz, ni)).</span>
+    <span class="n">vm_d_mid</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">vm_pos</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">vm_neg</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="n">vm_u_mid</span> <span class="o">=</span> <span class="o">-</span><span class="n">vm_neg</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="n">vm_l_mid</span> <span class="o">=</span>  <span class="n">vm_pos</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+
+    <span class="n">md_d</span> <span class="o">=</span> <span class="n">md_d</span> <span class="o">+</span> <span class="n">vs_d_mid</span> <span class="o">+</span> <span class="n">vm_d_mid</span>
+    <span class="n">md_u</span> <span class="o">=</span> <span class="n">md_u</span> <span class="o">+</span> <span class="n">vs_u_mid</span> <span class="o">+</span> <span class="n">vm_u_mid</span>
+    <span class="n">md_l</span> <span class="o">=</span> <span class="n">md_l</span> <span class="o">+</span> <span class="n">vs_l_mid</span> <span class="o">+</span> <span class="n">vm_l_mid</span>
+
+    <span class="n">diag_diff</span>  <span class="o">=</span> <span class="n">diag_diff</span> <span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">ek_d</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="n">md_d</span><span class="p">))</span>
+    <span class="n">upper_diff</span> <span class="o">=</span> <span class="n">upper_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="n">nz</span>    <span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">ek_u</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="n">md_u</span><span class="p">))</span>
+    <span class="n">lower_diff</span> <span class="o">=</span> <span class="n">lower_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">ek_l</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="n">md_l</span><span class="p">))</span>
+
+    <span class="c1"># ----- bottom BC (j = 0) -----------------------------------------</span>
+    <span class="n">mol_bc0</span> <span class="o">=</span> <span class="n">thermal_flag</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+               <span class="o">+</span> <span class="n">alpha</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Tco</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">Tco</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>               <span class="c1"># (ni,)</span>
+
+    <span class="n">bot0_eddy</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Kzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">-</span> <span class="n">vz_pos</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">bot0_mol</span>  <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Dzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">+</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span> <span class="o">*</span> <span class="n">mol_bc0</span><span class="p">)</span>                    <span class="c1"># (ni,)</span>
+    <span class="c1"># vs and vm bottom contributions (per-species)</span>
+    <span class="n">bot0_vs</span> <span class="o">=</span> <span class="o">-</span><span class="n">vs_pos</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>                                          <span class="c1"># (ni,)</span>
+    <span class="n">bot0_vm</span> <span class="o">=</span> <span class="n">vm_bot_flag</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="n">vm_pos</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>                          <span class="c1"># (ni,)</span>
+    <span class="n">diag_diff</span> <span class="o">=</span> <span class="n">diag_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">bot0_eddy</span> <span class="o">+</span> <span class="n">bot0_mol</span> <span class="o">+</span> <span class="n">bot0_vs</span> <span class="o">+</span> <span class="n">bot0_vm</span><span class="p">))</span>
+    <span class="c1"># use_botflux: ab_diag[0] -= -bot_vdep / dzi[0]</span>
+    <span class="n">diag_diff</span> <span class="o">=</span> <span class="n">diag_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">use_botflux_flag</span> <span class="o">*</span> <span class="n">bot_vdep</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="n">bot1_eddy</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Kzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                 <span class="o">-</span> <span class="n">vz_neg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">bot1_mol</span>  <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Dzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                 <span class="o">+</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span> <span class="o">*</span> <span class="n">mol_bc0</span><span class="p">)</span>                    <span class="c1"># (ni,)</span>
+    <span class="n">bot1_vs</span> <span class="o">=</span> <span class="o">-</span><span class="n">vs_neg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>                                          <span class="c1"># (ni,)</span>
+    <span class="n">bot1_vm</span> <span class="o">=</span> <span class="n">vm_bot_flag</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="n">vm_neg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>                          <span class="c1"># (ni,)</span>
+    <span class="n">upper_diff</span> <span class="o">=</span> <span class="n">upper_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">bot1_eddy</span> <span class="o">+</span> <span class="n">bot1_mol</span> <span class="o">+</span> <span class="n">bot1_vs</span> <span class="o">+</span> <span class="n">bot1_vm</span><span class="p">))</span>
+
+    <span class="c1"># ----- top BC (j = nz-1) -----------------------------------------</span>
+    <span class="n">mol_bcN</span> <span class="o">=</span> <span class="n">thermal_flag</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+               <span class="o">+</span> <span class="n">alpha</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Tco</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">Tco</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>           <span class="c1"># (ni,)</span>
+
+    <span class="n">topN_eddy</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Kzz</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+                 <span class="o">+</span> <span class="n">vz_neg</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">topN_mol</span>  <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Dzz</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+                 <span class="o">-</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dzz</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span> <span class="o">*</span> <span class="n">mol_bcN</span><span class="p">)</span>                  <span class="c1"># (ni,)</span>
+    <span class="c1"># vs[-1] = vs[nz-2] (top interface, below cell nz-1).</span>
+    <span class="c1"># vm[-1] = vm[nz-1] (top cell value).</span>
+    <span class="n">topN_vs</span> <span class="o">=</span> <span class="n">vs_neg</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>                                         <span class="c1"># (ni,)</span>
+    <span class="n">topN_vm</span> <span class="o">=</span> <span class="n">vm_neg</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>                                         <span class="c1"># (ni,)</span>
+    <span class="n">diag_diff</span> <span class="o">=</span> <span class="n">diag_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">topN_eddy</span> <span class="o">+</span> <span class="n">topN_mol</span> <span class="o">+</span> <span class="n">topN_vs</span> <span class="o">+</span> <span class="n">topN_vm</span><span class="p">))</span>
+
+    <span class="n">topL_eddy</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Kzz</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">+</span> <span class="n">vz_pos</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">topL_mol</span>  <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Dzz</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">-</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dzz</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span> <span class="o">*</span> <span class="n">mol_bcN</span><span class="p">)</span>                  <span class="c1"># (ni,)</span>
+    <span class="n">topL_vs</span> <span class="o">=</span> <span class="n">vs_pos</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>                                         <span class="c1"># (ni,)</span>
+    <span class="n">topL_vm</span> <span class="o">=</span> <span class="n">vm_pos</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>                                         <span class="c1"># (ni,)</span>
+    <span class="n">lower_diff</span> <span class="o">=</span> <span class="n">lower_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">topL_eddy</span> <span class="o">+</span> <span class="n">topL_mol</span> <span class="o">+</span> <span class="n">topL_vs</span> <span class="o">+</span> <span class="n">topL_vm</span><span class="p">))</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># 4. Add diffusion contributions to the three active banded rows</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">ab</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">bw</span>     <span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">diag_diff</span> <span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">ab</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">bw</span> <span class="o">-</span> <span class="n">ni</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">upper_diff</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">ab</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">bw</span> <span class="o">+</span> <span class="n">ni</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">lower_diff</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">ab</span>
+
+
+<span class="c1"># ===========================================================================</span>
+<span class="c1"># Log-space banded LHS kernel</span>
+<span class="c1">#</span>
+<span class="c1"># DORMANT INFRASTRUCTURE (see note above on _chemdf_logy_single).  Validated</span>
+<span class="c1"># at machine precision against the manual chain-rule transform of the</span>
+<span class="c1"># linear-y banded LHS.  Currently not wired into the integration loop.</span>
+<span class="c1">#</span>
+<span class="c1"># Same overall structure as `_lhs_jac_banded_kernel`, but:</span>
+<span class="c1">#   * Chemistry block via `_jac_logy_vmap` (autodiff handles chain rule and</span>
+<span class="c1">#     the -f_chem/y diagonal correction for free).</span>
+<span class="c1">#   * Diffusion entries computed in linear y, then transformed by the</span>
+<span class="c1">#     chain rule:</span>
+<span class="c1">#       - diag (j&#39; = j):  J_x = J_y - (diff/y)        → add diff_logy on diag</span>
+<span class="c1">#       - upper (j&#39; = j+1): J_x = J_y * y[j+1] / y[j]</span>
+<span class="c1">#       - lower (j&#39; = j-1): J_x = J_y * y[j-1] / y[j]</span>
+<span class="c1">#   * Caller passes `diff_logy = diffdf(exp(x))/exp(x)` (NumPy-side) for the</span>
+<span class="c1">#     diagonal correction.</span>
+<span class="c1"># ===========================================================================</span>
+
+<span class="nd">@partial</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">,</span> <span class="n">static_argnames</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;nz&#39;</span><span class="p">,))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_lhs_jac_banded_logy_kernel</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">c0</span><span class="p">,</span> <span class="n">diff_logy</span><span class="p">,</span>
+                                <span class="n">dzi</span><span class="p">,</span> <span class="n">Kzz</span><span class="p">,</span> <span class="n">Dzz</span><span class="p">,</span> <span class="n">vz</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">Tco</span><span class="p">,</span> <span class="n">ms</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">Ti</span><span class="p">,</span> <span class="n">Hpi</span><span class="p">,</span>
+                                <span class="n">gas_mask</span><span class="p">,</span> <span class="n">bot_vdep</span><span class="p">,</span> <span class="n">use_botflux_flag</span><span class="p">,</span>
+                                <span class="n">nz</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Banded LHS = c0*I - dg/dx where g(x) = (chemdf + diffdf)(exp(x)) / exp(x).</span>
+
+<span class="sd">    Inputs mirror :func:`_lhs_jac_banded_kernel` with these substitutions:</span>
+<span class="sd">      y  → x = log(y)</span>
+<span class="sd">      additionally `diff_logy` (nz, ni) = diffdf(exp(x), atm) / exp(x)</span>
+<span class="sd">                   computed by the caller, used for the diag chain-rule</span>
+<span class="sd">                   correction.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bw</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">ni</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">y</span>  <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># 1. Chemistry block via log-space autodiff (chain rule already</span>
+    <span class="c1">#    applied; diagonal includes -f_chem/y from the quotient rule).</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">jac</span> <span class="o">=</span> <span class="n">_jac_logy_vmap</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span> <span class="o">*</span> <span class="n">bw</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ni</span> <span class="o">*</span> <span class="n">nz</span><span class="p">))</span>
+    <span class="n">si</span><span class="p">,</span> <span class="n">sj</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">mgrid</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">ni</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="n">ni</span><span class="p">]</span>
+    <span class="n">row_chem</span> <span class="o">=</span> <span class="n">bw</span> <span class="o">+</span> <span class="n">si</span> <span class="o">-</span> <span class="n">sj</span>
+    <span class="n">col_chem</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nz</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">ni</span> <span class="o">+</span> <span class="n">sj</span>
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">ab</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">row_chem</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span> <span class="n">col_chem</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="o">-</span><span class="n">jac</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># 2. Identity: c0 on the main diagonal.</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">ab</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">bw</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c0</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># 3. Diffusion contributions in linear y (same analytic formulas as</span>
+    <span class="c1">#    the linear kernel).  These will be transformed in step 4.</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">ysum</span>   <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="n">gas_mask</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">vz_pos</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">vz</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">vz_neg</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">vz</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+
+    <span class="n">diag_diff</span>  <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nz</span><span class="p">,</span> <span class="n">ni</span><span class="p">))</span>
+    <span class="n">upper_diff</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nz</span><span class="p">,</span> <span class="n">ni</span><span class="p">))</span>
+    <span class="n">lower_diff</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nz</span><span class="p">,</span> <span class="n">ni</span><span class="p">))</span>
+
+    <span class="c1"># ----- middle layers j = 1..nz-2 ---------------------------------</span>
+    <span class="n">j</span>      <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">dz_ave</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+    <span class="n">Dj</span>     <span class="o">=</span> <span class="n">Dzz</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+    <span class="n">Dj1</span>    <span class="o">=</span> <span class="n">Dzz</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">ek_d</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dz_ave</span> <span class="o">*</span> <span class="p">(</span><span class="n">Kzz</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.</span>
+                            <span class="o">+</span> <span class="n">Kzz</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">)</span>
+            <span class="o">/</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="o">-</span> <span class="p">(</span><span class="n">vz_pos</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">vz_neg</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">)</span>
+    <span class="n">ek_u</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dz_ave</span> <span class="o">*</span> <span class="n">Kzz</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="o">-</span> <span class="n">vz_neg</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">)</span>
+    <span class="n">ek_l</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dz_ave</span> <span class="o">*</span> <span class="n">Kzz</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="o">+</span> <span class="n">vz_pos</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dz_ave</span><span class="p">)</span>
+
+    <span class="n">inv_dza</span>  <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">dz_ave</span>
+    <span class="n">inv_dza2</span> <span class="o">=</span> <span class="n">inv_dza</span> <span class="o">/</span> <span class="mf">2.</span>
+    <span class="n">dTj</span>      <span class="o">=</span> <span class="p">(</span><span class="n">Tco</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">Tco</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+    <span class="n">dTj1</span>     <span class="o">=</span> <span class="p">(</span><span class="n">Tco</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>     <span class="o">-</span> <span class="n">Tco</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">term_j</span> <span class="o">=</span> <span class="n">Dj</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+                   <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+                   <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">dTj</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">term_j1</span> <span class="o">=</span> <span class="n">Dj1</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+                     <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+                     <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">dTj1</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+
+    <span class="n">md_d_sc</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="n">inv_dza</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+               <span class="o">*</span> <span class="p">(</span><span class="n">Dj</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span>
+                  <span class="o">+</span> <span class="n">Dj1</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">)</span>
+               <span class="o">/</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">md_d</span> <span class="o">=</span> <span class="n">md_d_sc</span> <span class="o">+</span> <span class="n">inv_dza2</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">term_j</span> <span class="o">-</span> <span class="n">term_j1</span><span class="p">)</span>
+
+    <span class="n">term_u</span> <span class="o">=</span> <span class="n">Dj</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+                   <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+                   <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">dTj</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">md_u</span> <span class="o">=</span> <span class="p">(</span><span class="n">inv_dza</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dj</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+            <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+            <span class="o">+</span> <span class="n">inv_dza2</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">term_u</span><span class="p">)</span>
+
+    <span class="n">term_l</span> <span class="o">=</span> <span class="n">Dj1</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+                    <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+                    <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">dTj1</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">md_l</span> <span class="o">=</span> <span class="p">(</span><span class="n">inv_dza</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dj1</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
+            <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span><span class="p">])[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">])</span>
+            <span class="o">-</span> <span class="n">inv_dza2</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">term_l</span><span class="p">)</span>
+
+    <span class="n">diag_diff</span>  <span class="o">=</span> <span class="n">diag_diff</span> <span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">ek_d</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="n">md_d</span><span class="p">))</span>
+    <span class="n">upper_diff</span> <span class="o">=</span> <span class="n">upper_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="n">nz</span>    <span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">ek_u</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="n">md_u</span><span class="p">))</span>
+    <span class="n">lower_diff</span> <span class="o">=</span> <span class="n">lower_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">ek_l</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="n">md_l</span><span class="p">))</span>
+
+    <span class="c1"># ----- bottom BC (j = 0) -----------------------------------------</span>
+    <span class="n">mol_bc0</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+               <span class="o">+</span> <span class="n">alpha</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Tco</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">Tco</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="n">bot0_eddy</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Kzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">-</span> <span class="n">vz_pos</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">bot0_mol</span>  <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Dzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">+</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span> <span class="o">*</span> <span class="n">mol_bc0</span><span class="p">)</span>
+    <span class="n">diag_diff</span> <span class="o">=</span> <span class="n">diag_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">bot0_eddy</span> <span class="o">+</span> <span class="n">bot0_mol</span><span class="p">))</span>
+    <span class="c1"># bot_vdep: included exactly as in the linear kernel.  Its contribution</span>
+    <span class="c1"># to g(x) = diff/y is -v_dep/dz (constant in x), so the linear diagonal</span>
+    <span class="c1"># term and the +diff_logy correction below cancel each other exactly.</span>
+    <span class="n">diag_diff</span> <span class="o">=</span> <span class="n">diag_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">use_botflux_flag</span> <span class="o">*</span> <span class="n">bot_vdep</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="n">bot1_eddy</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Kzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                 <span class="o">-</span> <span class="n">vz_neg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">bot1_mol</span>  <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Dzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                 <span class="o">+</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dzz</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span> <span class="o">*</span> <span class="n">mol_bc0</span><span class="p">)</span>
+    <span class="n">upper_diff</span> <span class="o">=</span> <span class="n">upper_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">bot1_eddy</span> <span class="o">+</span> <span class="n">bot1_mol</span><span class="p">))</span>
+
+    <span class="c1"># ----- top BC (j = nz-1) -----------------------------------------</span>
+    <span class="n">mol_bcN</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Hpi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ms</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">Navo</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="n">Ti</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+               <span class="o">+</span> <span class="n">alpha</span> <span class="o">/</span> <span class="n">Ti</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Tco</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">Tco</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="n">topN_eddy</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Kzz</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+                 <span class="o">+</span> <span class="n">vz_neg</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">topN_mol</span>  <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Dzz</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+                 <span class="o">-</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dzz</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span> <span class="o">*</span> <span class="n">mol_bcN</span><span class="p">)</span>
+    <span class="n">diag_diff</span> <span class="o">=</span> <span class="n">diag_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">topN_eddy</span> <span class="o">+</span> <span class="n">topN_mol</span><span class="p">))</span>
+
+    <span class="n">topL_eddy</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Kzz</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">+</span> <span class="n">vz_pos</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">topL_mol</span>  <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">Dzz</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">*</span> <span class="p">(</span><span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">ysum</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+                 <span class="o">-</span> <span class="mf">1.</span> <span class="o">/</span> <span class="n">dzi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dzz</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.</span> <span class="o">*</span> <span class="n">mol_bcN</span><span class="p">)</span>
+    <span class="n">lower_diff</span> <span class="o">=</span> <span class="n">lower_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">topL_eddy</span> <span class="o">+</span> <span class="n">topL_mol</span><span class="p">))</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># 4. Chain-rule transform of the diffusion bands.</span>
+    <span class="c1">#</span>
+    <span class="c1">#    diag_diff is -J_y[diag] (per linear assembly).  In log-space:</span>
+    <span class="c1">#      -J_x[diag] = -(J_y[diag] - g_diff[diag]) = -J_y[diag] + g_diff</span>
+    <span class="c1">#    so we ADD diff_logy to diag_diff.</span>
+    <span class="c1">#</span>
+    <span class="c1">#    upper_diff at row k = j+1 currently holds -J_y[i^j, i^{j+1}].</span>
+    <span class="c1">#    In log-space: -J_x = -J_y * y[j+1]/y[j], so multiply by y[k]/y[k-1].</span>
+    <span class="c1">#</span>
+    <span class="c1">#    lower_diff at row k = j-1 currently holds -J_y[i^j, i^{j-1}].</span>
+    <span class="c1">#    In log-space: multiply by y[k]/y[k+1].</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">ratio_upper</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">/</span> <span class="n">y</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>            <span class="c1"># (nz-1, ni): ratio for k = 1..nz-1</span>
+    <span class="n">ratio_lower</span> <span class="o">=</span> <span class="n">y</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>            <span class="c1"># (nz-1, ni): ratio for k = 0..nz-2</span>
+
+    <span class="n">upper_diff</span> <span class="o">=</span> <span class="n">upper_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="n">nz</span> <span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">upper_diff</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="n">nz</span> <span class="p">]</span> <span class="o">*</span> <span class="n">ratio_upper</span><span class="p">)</span>
+    <span class="n">lower_diff</span> <span class="o">=</span> <span class="n">lower_diff</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">nz</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">lower_diff</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">nz</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">ratio_lower</span><span class="p">)</span>
+
+    <span class="c1"># Diagonal correction: ADD diff_logy (this absorbs -(-g_diff) and also</span>
+    <span class="c1"># absorbs the bot_vdep cancellation we deliberately omitted above).</span>
+    <span class="n">diag_diff</span> <span class="o">=</span> <span class="n">diag_diff</span> <span class="o">+</span> <span class="n">diff_logy</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># 5. Add transformed diffusion contributions to the three active bands.</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">ab</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">bw</span>     <span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">diag_diff</span> <span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">ab</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">bw</span> <span class="o">-</span> <span class="n">ni</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">upper_diff</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">ab</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">bw</span> <span class="o">+</span> <span class="n">ni</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">lower_diff</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">ab</span>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Shang-Min Tsai and contributors
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=1b390748"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

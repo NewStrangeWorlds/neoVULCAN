@@ -1,0 +1,588 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+
+    <!-- Generated with Sphinx 8.1.3 and Furo 2025.12.19 -->
+        <title>rodas3 - neoVULCAN documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">neoVULCAN documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <span class="sidebar-brand-text">neoVULCAN documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../running.html">Running neoVULCAN</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Theory</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../math_background.html">Mathematical background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../numerics.html">Numerical methods</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../config_reference.html">Configuration reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../code_architecture.html">Code architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Appendix</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../references.html">References</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for rodas3</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;3rd-order Rosenbrock-Wanner integrator (Sandu&#39;s Rodas3).</span>
+
+<span class="sd">A drop-in alternative to the Ros2 W-method.  Enabled via</span>
+<span class="sd">``cfg.solver.ode_solver = &#39;Rodas3&#39;``.</span>
+
+<span class="sd">Reference</span>
+<span class="sd">---------</span>
+<span class="sd">Sandu, A., Verwer, J. G., Van Loon, M., Carmichael, G. R., Potra, F. A.,</span>
+<span class="sd">Dabdub, D., &amp; Seinfeld, J. H. (1997). *Benchmarking stiff ODE solvers for</span>
+<span class="sd">atmospheric chemistry problems — I. Implicit vs explicit.*</span>
+<span class="sd">Atmospheric Environment 31(19), 3151-3166.</span>
+
+<span class="sd">The coefficient set used here matches the canonical KPP</span>
+<span class="sd">(Kinetic PreProcessor, Sandu et al.) Rodas3 in ``int/rosenbrock.f90``:</span>
+
+<span class="sd">    γ = 1/2  (so c0 = 1/(γh) = 2/h on the W-method LHS)</span>
+
+<span class="sd">    α21 = 0</span>
+<span class="sd">    α31 = 2;   α32 = 0</span>
+<span class="sd">    α41 = 2;   α42 = 0;   α43 = 1</span>
+
+<span class="sd">    γ21 = 4</span>
+<span class="sd">    γ31 = 1;   γ32 = -1</span>
+<span class="sd">    γ41 = 1;   γ42 = -1;  γ43 = -8/3</span>
+
+<span class="sd">    b₁ = 2;    b₂ = 0;    b₃ = 1;    b₄ = 1   (3rd-order solution weights)</span>
+<span class="sd">    e₁ = 0;    e₂ = 0;    e₃ = 0;    e₄ = 1   (embedded order-2 estimator)</span>
+
+<span class="sd">    ros_NewF = (T, T, F, T)   # which stages re-evaluate f</span>
+
+<span class="sd">Embedded error estimator is just k₄.  4 banded solves and 3 RHS</span>
+<span class="sd">evaluations per step (stage 3 reuses stage 2&#39;s f).  L-stable, stiffly</span>
+<span class="sd">accurate.  Per-step cost ≈ 2× Ros2; per-step accuracy is one order</span>
+<span class="sd">higher, so the controller can take larger steps at tighter rtol.</span>
+
+<span class="sd">Supported configurations</span>
+<span class="sd">------------------------</span>
+<span class="sd">The standard path (``use_moldiff=True``, ``use_settling=False``,</span>
+<span class="sd">``use_vm_mol=False``) is supported and uses the existing</span>
+<span class="sd">``lhs_jac_banded`` and ``diffdf`` kernels.  Edge-case configurations</span>
+<span class="sd">(settling, upwind molecular-diffusion ``vm_mol``, no-moldiff) currently</span>
+<span class="sd">fall back to Ros2 with a clear NotImplementedError — extending Rodas3</span>
+<span class="sd">to those code paths is straightforward but not required for the common</span>
+<span class="sd">HD189 / hot-Jupiter setup.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.linalg.lapack</span><span class="w"> </span><span class="kn">import</span> <span class="n">dgbtrf</span><span class="p">,</span> <span class="n">dgbtrs</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">neovulcan_runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_cfg</span>
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">get_cfg</span><span class="p">()</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">build_atm</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">chemistry_jax</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">chem_funs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">chemistry_jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">ni</span>
+<span class="n">nz</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">atmosphere</span><span class="o">.</span><span class="n">nz</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">chemistry_jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">chemdf</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">ode_solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">ODESolver</span>
+
+<span class="n">compo</span> <span class="o">=</span> <span class="n">build_atm</span><span class="o">.</span><span class="n">compo</span>
+<span class="n">compo_row</span> <span class="o">=</span> <span class="n">build_atm</span><span class="o">.</span><span class="n">compo_row</span>
+<span class="n">species</span> <span class="o">=</span> <span class="n">chem_funs</span><span class="o">.</span><span class="n">spec_list</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Sandu Rodas3 coefficient set (KPP rosenbrock.f90 canonical values).</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="n">_GAMMA</span> <span class="o">=</span> <span class="mf">0.5</span>
+
+<span class="n">_A31</span> <span class="o">=</span> <span class="mf">2.0</span>
+<span class="n">_A41</span> <span class="o">=</span> <span class="mf">2.0</span>
+<span class="n">_A43</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="c1"># α21=α32=α42=0 — not stored, written as literal 0 below.</span>
+
+<span class="n">_C21</span> <span class="o">=</span>  <span class="mf">4.0</span>
+<span class="n">_C31</span> <span class="o">=</span>  <span class="mf">1.0</span>
+<span class="n">_C32</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span>
+<span class="n">_C41</span> <span class="o">=</span>  <span class="mf">1.0</span>
+<span class="n">_C42</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span>
+<span class="n">_C43</span> <span class="o">=</span> <span class="o">-</span><span class="mf">8.0</span> <span class="o">/</span> <span class="mf">3.0</span>
+
+<span class="n">_B1</span> <span class="o">=</span> <span class="mf">2.0</span>
+<span class="n">_B3</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">_B4</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="c1"># b2=0, not stored.</span>
+
+
+<div class="viewcode-block" id="Rodas3">
+<a class="viewcode-back" href="../api.html#rodas3.Rodas3">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Rodas3</span><span class="p">(</span><span class="n">ODESolver</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;3rd-order Rosenbrock-Wanner with embedded 2nd-order error estimator.</span>
+
+<span class="sd">    Inherits spatial discretisation (diffdf, lhs_jac_banded, clip, step_ok,</span>
+<span class="sd">    step_reject, step_size, photochemistry) from ODESolver.  The</span>
+<span class="sd">    step-size controller (I or PI) is inherited and parameterised by</span>
+<span class="sd">    ``error_order = 3``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">error_order</span> <span class="o">=</span> <span class="mi">3</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Rodas3.solver">
+<a class="viewcode-back" href="../api.html#rodas3.Rodas3.solver">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">atm</span><span class="p">,</span> <span class="n">para</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;One Rodas3 step.  4 banded solves + 3 RHS evaluations.&quot;&quot;&quot;</span>
+        <span class="n">y</span><span class="p">,</span> <span class="n">ymix</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">var</span><span class="o">.</span><span class="n">ymix</span><span class="p">,</span> <span class="n">var</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span> <span class="n">var</span><span class="o">.</span><span class="n">k</span>
+        <span class="n">M</span> <span class="o">=</span> <span class="n">atm</span><span class="o">.</span><span class="n">M</span>
+
+        <span class="c1"># Rodas3 currently supports the most common path only.  Detect any</span>
+        <span class="c1"># configuration that needs a different lhs_jac/diffdf and refuse</span>
+        <span class="c1"># to run rather than silently produce wrong results.</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">atmosphere</span><span class="o">.</span><span class="n">use_vm_mol</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">&quot;Rodas3 does not (yet) support use_vm_mol=True; use Ros2.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">condensation</span><span class="o">.</span><span class="n">use_settling</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">&quot;Rodas3 does not (yet) support use_settling=True; use Ros2.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">atmosphere</span><span class="o">.</span><span class="n">use_moldiff</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">&quot;Rodas3 does not (yet) support use_moldiff=False; use Ros2.&quot;</span><span class="p">)</span>
+
+        <span class="n">diffdf</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffdf</span>
+        <span class="n">jac_fn</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lhs_jac_banded</span>
+        <span class="n">c0</span>      <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">_GAMMA</span> <span class="o">*</span> <span class="n">h</span><span class="p">)</span>        <span class="c1"># = 2/h</span>
+
+        <span class="c1"># --- LHS (shared across all 4 stages) ---</span>
+        <span class="n">lhs_b</span><span class="p">,</span> <span class="n">bw</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">atm</span><span class="p">,</span> <span class="n">c0</span><span class="o">=</span><span class="n">c0</span><span class="p">)</span>
+
+        <span class="c1"># Boundary/condensation/ion handling — same pattern as Ros2.</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">condensation</span><span class="o">.</span><span class="n">use_condense</span> <span class="ow">and</span> <span class="n">para</span><span class="o">.</span><span class="n">fix_species_start</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">sp</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">condensation</span><span class="o">.</span><span class="n">fix_species</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">condensation</span><span class="o">.</span><span class="n">fix_species_from_coldtrap_lev</span><span class="p">:</span>
+                    <span class="n">pfix_indx</span> <span class="o">=</span> <span class="n">atm</span><span class="o">.</span><span class="n">conden_min_lev</span><span class="p">[</span><span class="n">sp</span><span class="p">]</span>
+                    <span class="n">atm</span><span class="o">.</span><span class="n">fix_sp_indx</span><span class="p">[</span><span class="n">sp</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
+                        <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">sp</span><span class="p">),</span>
+                        <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span> <span class="o">+</span> <span class="n">ni</span> <span class="o">*</span> <span class="n">pfix_indx</span><span class="p">,</span> <span class="n">ni</span><span class="p">)</span>
+                <span class="n">lhs_b</span><span class="p">[:,</span> <span class="n">atm</span><span class="o">.</span><span class="n">fix_sp_indx</span><span class="p">[</span><span class="n">sp</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">0.</span>
+                <span class="n">lhs_b</span><span class="p">[</span><span class="n">bw</span><span class="p">,</span> <span class="n">atm</span><span class="o">.</span><span class="n">fix_sp_indx</span><span class="p">[</span><span class="n">sp</span><span class="p">]]</span> <span class="o">=</span> <span class="n">c0</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">photochemistry</span><span class="o">.</span><span class="n">use_ion</span><span class="p">:</span>
+            <span class="n">lhs_b</span><span class="p">[:,</span> <span class="n">atm</span><span class="o">.</span><span class="n">fix_e_indx</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.</span>
+            <span class="n">lhs_b</span><span class="p">[</span><span class="n">bw</span><span class="p">,</span> <span class="n">atm</span><span class="o">.</span><span class="n">fix_e_indx</span><span class="p">]</span> <span class="o">=</span> <span class="n">c0</span>
+
+        <span class="c1"># Factor the banded LHS ONCE (LAPACK dgbtrf) so the 4 stages share</span>
+        <span class="c1"># one LU factorisation.  scipy.linalg.solve_banded recomputes the</span>
+        <span class="c1"># LU on every call, which would be ~3× more work for a 4-stage</span>
+        <span class="c1"># method.  Expand to LAPACK&#39;s (2*kl+ku+1, n) layout (extra rows</span>
+        <span class="c1"># for fill-in during pivoting).</span>
+        <span class="n">kl</span> <span class="o">=</span> <span class="n">ku</span> <span class="o">=</span> <span class="n">bw</span>
+        <span class="n">n_total</span> <span class="o">=</span> <span class="n">lhs_b</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">ab_lapack</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span> <span class="o">*</span> <span class="n">kl</span> <span class="o">+</span> <span class="n">ku</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_total</span><span class="p">))</span>
+        <span class="n">ab_lapack</span><span class="p">[</span><span class="n">kl</span><span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">lhs_b</span>
+        <span class="n">lu</span><span class="p">,</span> <span class="n">ipiv</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">dgbtrf</span><span class="p">(</span><span class="n">ab_lapack</span><span class="p">,</span> <span class="n">kl</span><span class="p">,</span> <span class="n">ku</span><span class="p">,</span> <span class="n">overwrite_ab</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">info</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Rodas3 banded LU factorisation failed (LAPACK dgbtrf &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;info=</span><span class="si">{</span><span class="n">info</span><span class="si">}</span><span class="s2">); singular or ill-conditioned LHS.&quot;</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_solve</span><span class="p">(</span><span class="n">rhs</span><span class="p">):</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">info_s</span> <span class="o">=</span> <span class="n">dgbtrs</span><span class="p">(</span><span class="n">lu</span><span class="p">,</span> <span class="n">kl</span><span class="p">,</span> <span class="n">ku</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">ipiv</span><span class="p">,</span> <span class="n">overwrite_b</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">info_s</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Rodas3 banded back-substitution failed &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;(LAPACK dgbtrs info=</span><span class="si">{</span><span class="n">info_s</span><span class="si">}</span><span class="s2">).&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span>
+
+        <span class="c1"># Helper to zero-out fixed-species/ion entries in any RHS vector.</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_mask_rhs</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">condensation</span><span class="o">.</span><span class="n">use_condense</span> <span class="ow">and</span> <span class="n">para</span><span class="o">.</span><span class="n">fix_species_start</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">sp</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">condensation</span><span class="o">.</span><span class="n">fix_species</span><span class="p">:</span>
+                    <span class="n">df</span><span class="p">[</span><span class="n">atm</span><span class="o">.</span><span class="n">fix_sp_indx</span><span class="p">[</span><span class="n">sp</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">photochemistry</span><span class="o">.</span><span class="n">use_ion</span><span class="p">:</span>
+                <span class="n">df</span><span class="p">[</span><span class="n">atm</span><span class="o">.</span><span class="n">fix_e_indx</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">return</span> <span class="n">df</span>
+
+        <span class="c1"># --- Stage 1: W·k1 = f(y_n) ---</span>
+        <span class="n">f1</span> <span class="o">=</span> <span class="p">(</span><span class="n">chemdf</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span> <span class="o">+</span> <span class="n">diffdf</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">atm</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+        <span class="n">f1</span> <span class="o">=</span> <span class="n">_mask_rhs</span><span class="p">(</span><span class="n">f1</span><span class="p">)</span>
+        <span class="n">k1_flat</span> <span class="o">=</span> <span class="n">_solve</span><span class="p">(</span><span class="n">f1</span><span class="p">)</span>
+        <span class="n">k1</span> <span class="o">=</span> <span class="n">k1_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="c1"># --- Stage 2: W·k2 = f(y_n) + (C21/h)·k1   (α21=0 → same y as stage 1) ---</span>
+        <span class="c1"># KPP convention: RHS_i = F_temp + sum_{j&lt;i} (C_ij / h) · k_j_flat</span>
+        <span class="n">f2</span> <span class="o">=</span> <span class="n">f1</span>   <span class="c1"># ros_NewF[2]=T but α21=0 means new y == y_n; f is identical.</span>
+        <span class="n">rhs2</span> <span class="o">=</span> <span class="n">f2</span> <span class="o">+</span> <span class="p">(</span><span class="n">_C21</span> <span class="o">/</span> <span class="n">h</span><span class="p">)</span> <span class="o">*</span> <span class="n">k1_flat</span>
+        <span class="n">k2_flat</span> <span class="o">=</span> <span class="n">_solve</span><span class="p">(</span><span class="n">rhs2</span><span class="p">)</span>
+        <span class="n">k2</span> <span class="o">=</span> <span class="n">k2_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="c1"># --- Stage 3: W·k3 = f(y_n) + (C31/h)·k1 + (C32/h)·k2   (ros_NewF[3]=F) ---</span>
+        <span class="n">rhs3</span> <span class="o">=</span> <span class="n">f1</span> <span class="o">+</span> <span class="p">(</span><span class="n">_C31</span> <span class="o">/</span> <span class="n">h</span><span class="p">)</span> <span class="o">*</span> <span class="n">k1_flat</span> <span class="o">+</span> <span class="p">(</span><span class="n">_C32</span> <span class="o">/</span> <span class="n">h</span><span class="p">)</span> <span class="o">*</span> <span class="n">k2_flat</span>
+        <span class="n">k3_flat</span> <span class="o">=</span> <span class="n">_solve</span><span class="p">(</span><span class="n">rhs3</span><span class="p">)</span>
+        <span class="n">k3</span> <span class="o">=</span> <span class="n">k3_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="c1"># --- Stage 4: W·k4 = f(y_n + α41·k1 + α43·k3) + Σ (C4j/h)·kj ---</span>
+        <span class="c1"># α41=2, α42=0, α43=1.</span>
+        <span class="n">y_stage4</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">_A41</span> <span class="o">*</span> <span class="n">k1</span> <span class="o">+</span> <span class="n">_A43</span> <span class="o">*</span> <span class="n">k3</span>
+        <span class="n">f4</span> <span class="o">=</span> <span class="p">(</span><span class="n">chemdf</span><span class="p">(</span><span class="n">y_stage4</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+              <span class="o">+</span> <span class="n">diffdf</span><span class="p">(</span><span class="n">y_stage4</span><span class="p">,</span> <span class="n">atm</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+        <span class="n">f4</span> <span class="o">=</span> <span class="n">_mask_rhs</span><span class="p">(</span><span class="n">f4</span><span class="p">)</span>
+        <span class="n">rhs4</span> <span class="o">=</span> <span class="p">(</span><span class="n">f4</span>
+                <span class="o">+</span> <span class="p">(</span><span class="n">_C41</span> <span class="o">/</span> <span class="n">h</span><span class="p">)</span> <span class="o">*</span> <span class="n">k1_flat</span>
+                <span class="o">+</span> <span class="p">(</span><span class="n">_C42</span> <span class="o">/</span> <span class="n">h</span><span class="p">)</span> <span class="o">*</span> <span class="n">k2_flat</span>
+                <span class="o">+</span> <span class="p">(</span><span class="n">_C43</span> <span class="o">/</span> <span class="n">h</span><span class="p">)</span> <span class="o">*</span> <span class="n">k3_flat</span><span class="p">)</span>
+        <span class="n">k4_flat</span> <span class="o">=</span> <span class="n">_solve</span><span class="p">(</span><span class="n">rhs4</span><span class="p">)</span>
+        <span class="n">k4</span> <span class="o">=</span> <span class="n">k4_flat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="c1"># --- 3rd-order solution: y_{n+1} = y_n + b1·k1 + b3·k3 + b4·k4 ---</span>
+        <span class="c1"># (b2 = 0; b1 = 2, b3 = 1, b4 = 1.)</span>
+        <span class="n">sol</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">_B1</span> <span class="o">*</span> <span class="n">k1</span> <span class="o">+</span> <span class="n">_B3</span> <span class="o">*</span> <span class="n">k3</span> <span class="o">+</span> <span class="n">_B4</span> <span class="o">*</span> <span class="n">k4</span>
+
+        <span class="c1"># H2/He bottom-pin (mirrors Ros2.solver lines 142-148)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">boundary_conditions</span><span class="o">.</span><span class="n">use_fix_H2He</span>
+                <span class="ow">and</span> <span class="s1">&#39;H2&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">boundary_conditions</span><span class="o">.</span><span class="n">use_fix_sp_bot</span>
+                <span class="ow">and</span> <span class="n">var</span><span class="o">.</span><span class="n">t</span> <span class="o">&gt;</span> <span class="mf">1e6</span><span class="p">):</span>
+            <span class="n">cfg</span><span class="o">.</span><span class="n">boundary_conditions</span><span class="o">.</span><span class="n">use_fix_sp_bot</span><span class="p">[</span><span class="s1">&#39;H2&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">ymix</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;H2&#39;</span><span class="p">)]</span>
+            <span class="n">cfg</span><span class="o">.</span><span class="n">boundary_conditions</span><span class="o">.</span><span class="n">use_fix_sp_bot</span><span class="p">[</span><span class="s1">&#39;He&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">ymix</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;He&#39;</span><span class="p">)]</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;After 1e6 sec, H2 and He are fixed at &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">ymix</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;H2&#39;</span><span class="p">)],</span>
+                 <span class="n">var</span><span class="o">.</span><span class="n">ymix</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;He&#39;</span><span class="p">)])))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fix_sp_bot_index</span> <span class="o">=</span> <span class="p">[</span><span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+                                     <span class="k">for</span> <span class="n">sp</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">boundary_conditions</span><span class="o">.</span><span class="n">use_fix_sp_bot</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fix_sp_bot_mix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">cfg</span><span class="o">.</span><span class="n">boundary_conditions</span><span class="o">.</span><span class="n">use_fix_sp_bot</span><span class="p">[</span><span class="n">sp</span><span class="p">]</span>
+                 <span class="k">for</span> <span class="n">sp</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">boundary_conditions</span><span class="o">.</span><span class="n">use_fix_sp_bot</span><span class="o">.</span><span class="n">keys</span><span class="p">()])</span>
+
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">boundary_conditions</span><span class="o">.</span><span class="n">use_fix_sp_bot</span><span class="p">:</span>
+            <span class="n">sol</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fix_sp_bot_index</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fix_sp_bot_mix</span> <span class="o">*</span> <span class="n">atm</span><span class="o">.</span><span class="n">n_0</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># --- Embedded estimator: y_err = e4·k4 = k4 ---</span>
+        <span class="c1"># (mirrors the |sol - yk2| pattern in Ros2 — same role as truncation</span>
+        <span class="c1"># error indicator, with the same masking by mtol/atol and same</span>
+        <span class="c1"># fixed-species/condense suppression.)</span>
+        <span class="n">delta_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">k4</span><span class="p">)</span>
+        <span class="n">delta_arr</span><span class="p">[</span><span class="n">ymix</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">mtol</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">delta_arr</span><span class="p">[</span><span class="n">sol</span>  <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">atol</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">boundary_conditions</span><span class="o">.</span><span class="n">use_botflux</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">boundary_conditions</span><span class="o">.</span><span class="n">use_fix_sp_bot</span><span class="p">:</span>
+            <span class="n">delta_arr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">condensation</span><span class="o">.</span><span class="n">use_condense</span><span class="p">:</span>
+            <span class="n">delta_arr</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">non_gas_sp_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">delta_arr</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">condense_sp_index</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">para</span><span class="o">.</span><span class="n">fix_species_start</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">sp</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">condensation</span><span class="o">.</span><span class="n">fix_species</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">condensation</span><span class="o">.</span><span class="n">fix_species_from_coldtrap_lev</span><span class="p">:</span>
+                        <span class="n">sol</span><span class="p">[:,</span> <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">sp</span><span class="p">)]</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">fix_y</span><span class="p">[</span><span class="n">sp</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">pfix_indx</span> <span class="o">=</span> <span class="n">atm</span><span class="o">.</span><span class="n">conden_min_lev</span><span class="p">[</span><span class="n">sp</span><span class="p">]</span>
+                        <span class="n">sol</span><span class="p">[:</span><span class="n">pfix_indx</span><span class="p">,</span> <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">sp</span><span class="p">)]</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="n">var</span><span class="o">.</span><span class="n">fix_y</span><span class="p">[</span><span class="n">sp</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()[:</span><span class="n">pfix_indx</span><span class="p">])</span>
+                    <span class="n">delta_arr</span><span class="p">[:,</span> <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">sp</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">use_print_delta</span> <span class="ow">and</span> <span class="n">para</span><span class="o">.</span><span class="n">count</span> <span class="o">%</span> <span class="n">cfg</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">print_prog_num</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">max_lev_indx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanargmax</span><span class="p">(</span><span class="n">delta_arr</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="mf">1e-300</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Largest delta (truncation error) at nz = &#39;</span>
+                  <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">max_lev_indx</span> <span class="o">/</span> <span class="n">ni</span><span class="p">))</span>
+                  <span class="o">+</span> <span class="s1">&#39;, species &#39;</span> <span class="o">+</span> <span class="n">species</span><span class="p">[</span><span class="n">max_lev_indx</span> <span class="o">%</span> <span class="n">ni</span><span class="p">])</span>
+
+        <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">delta_arr</span><span class="p">[</span><span class="n">sol</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">sol</span><span class="p">[</span><span class="n">sol</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">var</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">sol</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">condensation</span><span class="o">.</span><span class="n">non_gas_sp</span><span class="p">:</span>
+            <span class="n">var</span><span class="o">.</span><span class="n">ymix</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">y</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">y</span><span class="p">[:,</span> <span class="n">atm</span><span class="o">.</span><span class="n">gas_indx</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">var</span><span class="o">.</span><span class="n">ymix</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">y</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+        <span class="n">para</span><span class="o">.</span><span class="n">delta</span> <span class="o">=</span> <span class="n">delta</span>
+
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">photochemistry</span><span class="o">.</span><span class="n">use_ion</span><span class="p">:</span>
+            <span class="n">var</span><span class="o">.</span><span class="n">y</span><span class="p">[:,</span> <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;e&#39;</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">sp</span> <span class="ow">in</span> <span class="n">var</span><span class="o">.</span><span class="n">charge_list</span><span class="p">:</span>
+                <span class="n">var</span><span class="o">.</span><span class="n">y</span><span class="p">[:,</span> <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;e&#39;</span><span class="p">)]</span> <span class="o">-=</span> <span class="p">(</span>
+                    <span class="n">compo</span><span class="p">[</span><span class="n">compo_row</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">sp</span><span class="p">)][</span><span class="s1">&#39;e&#39;</span><span class="p">]</span>
+                    <span class="o">*</span> <span class="n">var</span><span class="o">.</span><span class="n">y</span><span class="p">[:,</span> <span class="n">species</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">sp</span><span class="p">)])</span>
+
+        <span class="k">return</span> <span class="n">var</span><span class="p">,</span> <span class="n">para</span></div>
+
+
+<div class="viewcode-block" id="Rodas3.naming_solver">
+<a class="viewcode-back" href="../api.html#rodas3.Rodas3.naming_solver">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">naming_solver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">para</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Select the dispatch name for one_step. Rodas3 has a single path.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">atmosphere</span><span class="o">.</span><span class="n">use_moldiff</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Include molecular diffusion (Rodas3).&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">&quot;Rodas3 currently requires use_moldiff=True; use Ros2.&quot;</span><span class="p">)</span>
+        <span class="n">para</span><span class="o">.</span><span class="n">solver_str</span> <span class="o">=</span> <span class="s1">&#39;solver&#39;</span></div>
+
+
+<div class="viewcode-block" id="Rodas3.one_step">
+<a class="viewcode-back" href="../api.html#rodas3.Rodas3.one_step">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">one_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">atm</span><span class="p">,</span> <span class="n">para</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inherited control flow: keep retrying until step_ok or step_reject.&quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">var</span><span class="p">,</span> <span class="n">para</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">para</span><span class="o">.</span><span class="n">solver_str</span><span class="p">)(</span><span class="n">var</span><span class="p">,</span> <span class="n">atm</span><span class="p">,</span> <span class="n">para</span><span class="p">)</span>
+            <span class="n">var</span><span class="p">,</span> <span class="n">para</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">para</span><span class="p">,</span> <span class="n">atm</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_ok</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">para</span><span class="p">):</span>
+                <span class="k">break</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_reject</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">para</span><span class="p">):</span>
+                <span class="k">break</span>
+        <span class="k">return</span> <span class="n">var</span><span class="p">,</span> <span class="n">para</span></div>
+</div>
+
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Shang-Min Tsai and contributors
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=1b390748"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>
