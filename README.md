@@ -14,6 +14,7 @@ The theory papers of VULCAN are
 [Tsai et al. 2021](https://arxiv.org/abs/2108.01790) (with photochemistry).
 Chemical equilibrium initialisation uses [FastChem](https://github.com/exoclime/FastChem).
 
+The full documentation can be found here: https://newstrangeworlds.github.io/neoVULCAN/
 
 ## Installation
 
