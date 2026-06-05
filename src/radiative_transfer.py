@@ -145,10 +145,29 @@ class TwoStreamRT:
         var.zeta_p = zeta_p
         var.tran   = tran
 
-        for j in range(nz-1, -1, -1):
-            var.dflux_d[j] = 1./chi[j] * (phi[j]*var.dflux_d[j+1] - xi[j]*var.dflux_u[j] + i_d[j]/mu_ang)
-        for j in range(1, nz+1):
-            var.dflux_u[j] = 1./chi[j-1] * (phi[j-1]*var.dflux_u[j-1] - xi[j-1]*var.dflux_d[j] + i_u[j-1]/mu_ang)
+        # Lambertian-surface lower BC: dflux_u[0] = A · (dflux_d[0] + dir_flux[0]).
+        # When A=0 (default) the sweep is single-pass exactly as before.
+        # When A>0 we iterate the coupled boundary to a fixed point — contracts
+        # by ≤ A per round trip, so a handful of sweeps suffices.
+        sfc_alb  = float(getattr(vulcan_cfg, 'surface_albedo', 0.0))
+        max_iter = 20 if sfc_alb > 0 else 1
+        sfc_tol  = 1.e-6
+
+        for _ in range(max_iter):
+            u0_prev = var.dflux_u[0].copy() if sfc_alb > 0 else None
+            for j in range(nz-1, -1, -1):
+                var.dflux_d[j] = 1./chi[j] * (phi[j]*var.dflux_d[j+1] - xi[j]*var.dflux_u[j] + i_d[j]/mu_ang)
+            if sfc_alb > 0:
+                var.dflux_u[0] = sfc_alb * (var.dflux_d[0] + dir_flux[0])
+            for j in range(1, nz+1):
+                var.dflux_u[j] = 1./chi[j-1] * (phi[j-1]*var.dflux_u[j-1] - xi[j-1]*var.dflux_d[j] + i_u[j-1]/mu_ang)
+            if sfc_alb == 0:
+                break
+            mask = var.dflux_u[0] > vulcan_cfg.flux_atol
+            if not mask.any() or np.nanmax(
+                np.abs(var.dflux_u[0][mask] - u0_prev[mask]) / var.dflux_u[0][mask]
+            ) < sfc_tol:
+                break
 
         ave_dir_flux = 0.5 * (var.sflux[:-1] + var.sflux[1:])
         tot_flux = (ave_dir_flux
@@ -327,7 +346,9 @@ class DisortRT(TwoStreamRT):
         """
         cfg = self._disortpp.DisortFluxConfig(nz, self._nstr)
         cfg.direct_beam_mu = float(np.cos(vulcan_cfg.sl_angle))
-        cfg.surface_albedo = 0.0
+        # surface_albedo is refreshed per call in _compute_flux so changes
+        # to vulcan_cfg.surface_albedo between calls take effect.
+        cfg.surface_albedo = float(getattr(vulcan_cfg, 'surface_albedo', 0.0))
         if self._native_bottom:
             cfg.index_from_bottom = True
         cfg.allocate()
@@ -379,6 +400,7 @@ class DisortRT(TwoStreamRT):
         wn = 1.e7 / var.bins
 
         cfg = self._cfg if self._cfg_nz == nz else self._make_cfg()
+        cfg.surface_albedo = float(getattr(vulcan_cfg, 'surface_albedo', 0.0))
 
         # ------------------------------------------------------------------
         # Single batch call — disortpp runs the per-bin loop in C++ with OpenMP.

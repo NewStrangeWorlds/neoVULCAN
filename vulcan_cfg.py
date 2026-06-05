@@ -52,6 +52,7 @@ T_cross_sp = ['CO2','H2O','NH3'] # warning: slower start! available atm: 'CO2','
 edd = 0.5 # the Eddington coefficient
 rt_scheme = 'two-stream' # radiative-transfer scheme: 'two-stream' (Eddington) or 'disort' (DisORT++)
 disort_nstr = 4 # number of streams used by the DisORT++ flux solver (4, 6, 8, 10, 12, 14, 16, 32, 64); 4 is sufficient for Rayleigh-dominated atmospheres
+surface_albedo = 0.0 # Lambertian surface albedo applied by both RT schemes (0 = black surface; e.g. 0.13 Earth-mean, 0.3 desert/cloud-top)
 dbin1 = 0.1  # the uniform bin width < dbin_12trans (nm)
 dbin2 = 2.   # the uniform bin width > dbin_12trans (nm)
 dbin_12trans = 240. # the wavelength switching from dbin1 to dbin2 (nm)
