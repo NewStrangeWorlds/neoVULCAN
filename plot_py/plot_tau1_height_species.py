@@ -4,11 +4,16 @@ sys.path.insert(0, '../') # including the upper level of directory for the path 
 import numpy as np 
 import matplotlib.pyplot as plt
 import matplotlib.legend as lg
-import vulcan_cfg
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from neovulcan_runtime import get_cfg_or_load
+cfg = get_cfg_or_load(
+    _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'vulcan_cfg.toml'),
+    base_dir=_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 try: from PIL import Image
 except ImportError: 
     try: import Image
-    except: vulcan_cfg.use_PIL = False
+    except: cfg.plotting.use_PIL = False
 import os, sys
 import pickle
 from scipy import interpolate
@@ -18,7 +23,7 @@ bin_array = np.arange(10,500,1.)
        
 plot_name = 'photosphere-Earth'
 vul_data = '../output/Earth-rtol01.vul'
-plot_dir = '../' + vulcan_cfg.plot_dir
+plot_dir = '../' + cfg.paths.plot_dir
 
 plot_all_sp = False
 plot_sp = [ 'O2', 'O3','N2', 'H2O', 'CO2', 'CH4'] # costomized what species to plot
@@ -186,7 +191,7 @@ plt.ylabel("Height (km)")
 #plt.title('Photosphere')
 plt.savefig(plot_dir + plot_name + '.png')
 plt.savefig(plot_dir + plot_name + '.pdf')
-#if vulcan_cfg.use_PIL == True:
+#if cfg.plotting.use_PIL == True:
 plot = Image.open(plot_dir + plot_name + '.png')
 plot.show()
 #else: plt.show()

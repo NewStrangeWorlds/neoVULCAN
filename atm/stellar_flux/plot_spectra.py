@@ -1,11 +1,10 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 import matplotlib.legend as lg
-#import vulcan_cfg
 try: from PIL import Image
-except ImportError: 
+except ImportError:
     try: import Image
-    except: vulcan_cfg.use_PIL = False
+    except ImportError: Image = None
 import os, sys
 import pickle
 #from phy_const import au, r_sun

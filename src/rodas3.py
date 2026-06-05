@@ -1,7 +1,7 @@
 """3rd-order Rosenbrock-Wanner integrator (Sandu's Rodas3).
 
 A drop-in alternative to the Ros2 W-method.  Enabled via
-``vulcan_cfg.ode_solver = 'Rodas3'``.
+``cfg.solver.ode_solver = 'Rodas3'``.
 
 Reference
 ---------
@@ -47,11 +47,12 @@ import numpy as np
 import scipy
 from scipy.linalg.lapack import dgbtrf, dgbtrs
 
-import vulcan_cfg
+from neovulcan_runtime import get_cfg
+cfg = get_cfg()
 import build_atm
 import chemistry_jax as chem_funs
 from chemistry_jax import ni
-from vulcan_cfg import nz
+nz = cfg.atmosphere.nz
 
 from chemistry_jax import chemdf
 
@@ -107,13 +108,13 @@ class Rodas3(ODESolver):
         # Rodas3 currently supports the most common path only.  Detect any
         # configuration that needs a different lhs_jac/diffdf and refuse
         # to run rather than silently produce wrong results.
-        if vulcan_cfg.use_vm_mol:
+        if cfg.atmosphere.use_vm_mol:
             raise NotImplementedError(
                 "Rodas3 does not (yet) support use_vm_mol=True; use Ros2.")
-        if vulcan_cfg.use_settling:
+        if cfg.condensation.use_settling:
             raise NotImplementedError(
                 "Rodas3 does not (yet) support use_settling=True; use Ros2.")
-        if not vulcan_cfg.use_moldiff:
+        if not cfg.atmosphere.use_moldiff:
             raise NotImplementedError(
                 "Rodas3 does not (yet) support use_moldiff=False; use Ros2.")
 
@@ -125,16 +126,16 @@ class Rodas3(ODESolver):
         lhs_b, bw = jac_fn(var, atm, c0=c0)
 
         # Boundary/condensation/ion handling — same pattern as Ros2.
-        if vulcan_cfg.use_condense and para.fix_species_start:
-            for sp in vulcan_cfg.fix_species:
-                if vulcan_cfg.fix_species_from_coldtrap_lev:
+        if cfg.condensation.use_condense and para.fix_species_start:
+            for sp in cfg.condensation.fix_species:
+                if cfg.condensation.fix_species_from_coldtrap_lev:
                     pfix_indx = atm.conden_min_lev[sp]
                     atm.fix_sp_indx[sp] = np.arange(
                         species.index(sp),
                         species.index(sp) + ni * pfix_indx, ni)
                 lhs_b[:, atm.fix_sp_indx[sp]] = 0.
                 lhs_b[bw, atm.fix_sp_indx[sp]] = c0
-        if vulcan_cfg.use_ion:
+        if cfg.photochemistry.use_ion:
             lhs_b[:, atm.fix_e_indx] = 0.
             lhs_b[bw, atm.fix_e_indx] = c0
 
@@ -163,10 +164,10 @@ class Rodas3(ODESolver):
 
         # Helper to zero-out fixed-species/ion entries in any RHS vector.
         def _mask_rhs(df):
-            if vulcan_cfg.use_condense and para.fix_species_start:
-                for sp in vulcan_cfg.fix_species:
+            if cfg.condensation.use_condense and para.fix_species_start:
+                for sp in cfg.condensation.fix_species:
                     df[atm.fix_sp_indx[sp]] = 0
-            if vulcan_cfg.use_ion:
+            if cfg.photochemistry.use_ion:
                 df[atm.fix_e_indx] = 0
             return df
 
@@ -206,21 +207,21 @@ class Rodas3(ODESolver):
         sol = y + _B1 * k1 + _B3 * k3 + _B4 * k4
 
         # H2/He bottom-pin (mirrors Ros2.solver lines 142-148)
-        if (getattr(vulcan_cfg, 'use_fix_H2He', False)
-                and 'H2' not in vulcan_cfg.use_fix_sp_bot
+        if (cfg.boundary_conditions.use_fix_H2He
+                and 'H2' not in cfg.boundary_conditions.use_fix_sp_bot
                 and var.t > 1e6):
-            vulcan_cfg.use_fix_sp_bot['H2'] = var.ymix[0, species.index('H2')]
-            vulcan_cfg.use_fix_sp_bot['He'] = var.ymix[0, species.index('He')]
+            cfg.boundary_conditions.use_fix_sp_bot['H2'] = var.ymix[0, species.index('H2')]
+            cfg.boundary_conditions.use_fix_sp_bot['He'] = var.ymix[0, species.index('He')]
             print("After 1e6 sec, H2 and He are fixed at " + str(
                 (var.ymix[0, species.index('H2')],
                  var.ymix[0, species.index('He')])))
             self.fix_sp_bot_index = [species.index(sp)
-                                     for sp in vulcan_cfg.use_fix_sp_bot.keys()]
+                                     for sp in cfg.boundary_conditions.use_fix_sp_bot.keys()]
             self.fix_sp_bot_mix = np.array(
-                [vulcan_cfg.use_fix_sp_bot[sp]
-                 for sp in vulcan_cfg.use_fix_sp_bot.keys()])
+                [cfg.boundary_conditions.use_fix_sp_bot[sp]
+                 for sp in cfg.boundary_conditions.use_fix_sp_bot.keys()])
 
-        if vulcan_cfg.use_fix_sp_bot:
+        if cfg.boundary_conditions.use_fix_sp_bot:
             sol[0, self.fix_sp_bot_index] = self.fix_sp_bot_mix * atm.n_0[0]
 
         # --- Embedded estimator: y_err = e4·k4 = k4 ---
@@ -231,15 +232,15 @@ class Rodas3(ODESolver):
         delta_arr[ymix < self.mtol] = 0
         delta_arr[sol  < self.atol] = 0
 
-        if vulcan_cfg.use_botflux or vulcan_cfg.use_fix_sp_bot:
+        if cfg.boundary_conditions.use_botflux or cfg.boundary_conditions.use_fix_sp_bot:
             delta_arr[0] = 0
 
-        if vulcan_cfg.use_condense:
+        if cfg.condensation.use_condense:
             delta_arr[:, self.non_gas_sp_index] = 0
             delta_arr[:, self.condense_sp_index] = 0
             if para.fix_species_start:
-                for sp in vulcan_cfg.fix_species:
-                    if not vulcan_cfg.fix_species_from_coldtrap_lev:
+                for sp in cfg.condensation.fix_species:
+                    if not cfg.condensation.fix_species_from_coldtrap_lev:
                         sol[:, species.index(sp)] = var.fix_y[sp].copy()
                     else:
                         pfix_indx = atm.conden_min_lev[sp]
@@ -247,7 +248,7 @@ class Rodas3(ODESolver):
                             var.fix_y[sp].copy()[:pfix_indx])
                     delta_arr[:, species.index(sp)] = 0
 
-        if vulcan_cfg.use_print_delta and para.count % vulcan_cfg.print_prog_num == 0:
+        if cfg.solver.use_print_delta and para.count % cfg.solver.print_prog_num == 0:
             max_lev_indx = np.nanargmax(delta_arr / np.maximum(sol, 1e-300))
             print('Largest delta (truncation error) at nz = '
                   + str(int(max_lev_indx / ni))
@@ -256,14 +257,14 @@ class Rodas3(ODESolver):
         delta = np.amax(delta_arr[sol > 0] / sol[sol > 0])
 
         var.y = sol
-        if vulcan_cfg.non_gas_sp:
+        if cfg.condensation.non_gas_sp:
             var.ymix = var.y / np.sum(var.y[:, atm.gas_indx], axis=1)[:, np.newaxis]
         else:
             var.ymix = var.y / np.sum(var.y, axis=1)[:, np.newaxis]
 
         para.delta = delta
 
-        if vulcan_cfg.use_ion:
+        if cfg.photochemistry.use_ion:
             var.y[:, species.index('e')] = 0
             for sp in var.charge_list:
                 var.y[:, species.index('e')] -= (
@@ -274,7 +275,7 @@ class Rodas3(ODESolver):
 
     def naming_solver(self, para):
         """Select the dispatch name for one_step. Rodas3 has a single path."""
-        if vulcan_cfg.use_moldiff:
+        if cfg.atmosphere.use_moldiff:
             print('Include molecular diffusion (Rodas3).')
         else:
             raise NotImplementedError(

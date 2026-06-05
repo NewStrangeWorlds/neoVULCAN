@@ -5,7 +5,7 @@ make_chemistry_jax.py — generates src/chemistry_jax.py from a VULCAN network f
 Usage:
     python make_chemistry_jax.py
 
-Reads the network specified in vulcan_cfg.network and writes
+Reads the network specified in cfg.network.network and writes
 src/chemistry_jax.py, which provides NumPy-native drop-in replacements for
 chem_funs.chemdf and chem_funs.neg_symjac, plus JAX versions as fallback.
 
@@ -17,13 +17,25 @@ The workflow mirrors make_chem_funs.py:
     python vulcan.py              # run simulation
 """
 
+import argparse
 import os
 import sys
 from collections import defaultdict
 
 _root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_root, 'src'))
-import vulcan_cfg
+sys.path.insert(0, _root)
+
+_argp = argparse.ArgumentParser(description='Generate src/chemistry_jax.py from a VULCAN network file.')
+_argp.add_argument('-c', '--config', default='vulcan_cfg.toml',
+                   help='Path to TOML config file (default: vulcan_cfg.toml in this directory)')
+_args = _argp.parse_args()
+
+from neovulcan_config import VulcanConfig
+from neovulcan_runtime import set_cfg, get_cfg
+_cfg_path = _args.config if os.path.isabs(_args.config) else os.path.join(_root, _args.config)
+set_cfg(VulcanConfig.from_toml(_cfg_path, base_dir=_root))
+cfg = get_cfg()
 
 _OFNAME = os.path.join(_root, 'src', 'chemistry_jax.py')
 
@@ -595,7 +607,7 @@ def generate(chem_dict, reactions, ofname):
 
     out = []
     out.append(_HEADER.format(
-        network=vulcan_cfg.network,
+        network=cfg.network.network,
         ni=ni,
         nr=nr,
         ni_1=ni - 1,
@@ -622,7 +634,7 @@ def generate(chem_dict, reactions, ofname):
     # docstring) — was a perf experiment, see commit notes.
     out.append(_CHEMDF_CLOSE)
     out.append(generate_numpy_section(chem_dict, reactions, ni, idx_to_name))
-    out.append(generate_gibbs_section(reactions, vulcan_cfg.gibbs_text))
+    out.append(generate_gibbs_section(reactions, cfg.network.gibbs_text))
     out.append(_POSTAMBLE)
 
     content = ''.join(out)
@@ -634,7 +646,7 @@ def generate(chem_dict, reactions, ofname):
     print(f"Wrote {ofname}")
     print(f"  {ni} species, {nr} reactions (fwd+rev)")
     print(f"  {len(jac_terms)} non-zero Jacobian (i,r) pairs out of {ni*ni}")
-    print(f"  Network: {vulcan_cfg.network}")
+    print(f"  Network: {cfg.network.network}")
 
 
 # ---------------------------------------------------------------------------
@@ -642,6 +654,6 @@ def generate(chem_dict, reactions, ofname):
 # ---------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    print(f"Parsing network: {vulcan_cfg.network}")
-    chem_dict, reactions = parse_network(vulcan_cfg.network)
+    print(f"Parsing network: {cfg.network.network}")
+    chem_dict, reactions = parse_network(cfg.network.network)
     generate(chem_dict, reactions, _OFNAME)

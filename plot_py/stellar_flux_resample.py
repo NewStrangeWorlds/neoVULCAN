@@ -4,11 +4,16 @@ sys.path.insert(0, '../') # including the upper level of directory for the path 
 import numpy as np 
 import matplotlib.pyplot as plt
 import matplotlib.legend as lg
-import vulcan_cfg
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from neovulcan_runtime import get_cfg_or_load
+cfg = get_cfg_or_load(
+    _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'vulcan_cfg.toml'),
+    base_dir=_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 try: from PIL import Image
 except ImportError: 
     try: import Image
-    except: vulcan_cfg.use_PIL = False
+    except: cfg.plotting.use_PIL = False
 import os, sys
 import pickle
 from phy_const import au, r_sun
@@ -119,7 +124,7 @@ plt.xlabel("wavelength (nm)")
 plt.ylabel("Flux (ergs s-1 nm-1 cm-2)")
 plt.savefig('../plot/' + plot_name + '.png')
 plt.savefig('../plot/' + plot_name + '.pdf')
-if vulcan_cfg.use_PIL == True:
+if cfg.plotting.use_PIL == True:
     plot = Image.open('../plot/' + plot_name + '.png')
     plot.show()
 else: plt.show()

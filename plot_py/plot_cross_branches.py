@@ -5,14 +5,19 @@ Created on
 """
 import sys
 sys.path.insert(0, '../') # including the upper level of directory for the path of modules
-import vulcan_cfg
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from neovulcan_runtime import get_cfg_or_load
+cfg = get_cfg_or_load(
+    _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'vulcan_cfg.toml'),
+    base_dir=_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 import numpy as np
 from matplotlib import pyplot as plt
 import csv, ast
 try: from PIL import Image
 except ImportError: 
     try: import Image
-    except: vulcan_cfg.use_PIL = False
+    except: cfg.plotting.use_PIL = False
 from scipy import interpolate
  
 network = '_photo_network.txt'
@@ -32,8 +37,8 @@ tex_labels = {'H':'H','H2':'H$_2$','O':'O','OH':'OH','H2O':'H$_2$O','CH':'CH','C
 cross_raw, ratio_raw = {}, {}
 cross_J, inter_ratio = {}, {}
 
-cross_raw[sp] = np.genfromtxt('../'+ vulcan_cfg.cross_folder+sp+'/'+sp+'_cross.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso'])
-ratio_raw[sp] = np.genfromtxt('../'+ vulcan_cfg.cross_folder+sp+'/'+sp+'_branch.csv',dtype=float,delimiter=',',skip_header=1, names = True)
+cross_raw[sp] = np.genfromtxt('../'+ cfg.network.cross_folder+sp+'/'+sp+'_cross.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso'])
+ratio_raw[sp] = np.genfromtxt('../'+ cfg.network.cross_folder+sp+'/'+sp+'_branch.csv',dtype=float,delimiter=',',skip_header=1, names = True)
 
 cross =  np.zeros(len(bins))
 for i in range(1,num_br+1): # fill_value extends the first and last elements for branching ratios
@@ -78,7 +83,7 @@ T_list = [195,230,300,420,500,585,700,800,1160]
 cross_T = {}
 # high-T 423 573 1630
 for _,tt in enumerate(T_list):
-    cross_T[tt] = np.genfromtxt('../'+ vulcan_cfg.cross_folder+sp+'/'+sp+'_cross_'+str(tt)+'K.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross'])
+    cross_T[tt] = np.genfromtxt('../'+ cfg.network.cross_folder+sp+'/'+sp+'_cross_'+str(tt)+'K.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross'])
 
     inter_cross = interpolate.interp1d(cross_T[tt]['lambda'], cross_T[tt]['cross'], bounds_error=False, fill_value=0)
 

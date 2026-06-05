@@ -2,11 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time, os, pickle
 
-import vulcan_cfg
+from neovulcan_runtime import get_cfg
+cfg = get_cfg()
 try: from PIL import Image
 except ImportError:
     try: import Image
-    except ImportError: vulcan_cfg.use_PIL = False
+    except ImportError: cfg.plotting.use_PIL = False
 
 import build_atm
 import chemistry_jax as chem_funs
@@ -20,12 +21,12 @@ class Output(object):
     
     def __init__(self):
         
-        output_dir, out_name, plot_dir = vulcan_cfg.output_dir, vulcan_cfg.out_name, vulcan_cfg.plot_dir
+        output_dir, out_name, plot_dir = cfg.paths.output_dir, cfg.paths.out_name, cfg.paths.plot_dir
 
         if not os.path.exists(output_dir): os.makedirs(output_dir)
         if not os.path.exists(plot_dir): os.makedirs(plot_dir)
-        if vulcan_cfg.use_save_movie:
-            if not os.path.exists(vulcan_cfg.movie_dir): os.makedirs(vulcan_cfg.movie_dir)
+        if cfg.plotting.use_save_movie:
+            if not os.path.exists(cfg.paths.movie_dir): os.makedirs(cfg.paths.movie_dir)
         
         if os.path.isfile(output_dir+out_name):
             # Fix Python 3.x and 2.x.
@@ -39,7 +40,7 @@ class Output(object):
         
     def print_prog(self, var, para):
         indx_max = np.nanargmax(para.where_varies_most)
-        print ('Elapsed time: ' +"{:.2e}".format(var.t) + ' || Step number: ' + str(para.count) + '/' + str(vulcan_cfg.count_max) ) 
+        print ('Elapsed time: ' +"{:.2e}".format(var.t) + ' || Step number: ' + str(para.count) + '/' + str(cfg.solver.count_max) ) 
         print ('longdy = ' + "{:.2e}".format(var.longdy) + '      || longdy/dt = ' + "{:.2e}".format(var.longdydt) + '  || dt = '+ "{:.2e}".format(var.dt) )      
         print ('from nz = ' + str(int(indx_max/ni)) + ' and ' + species[indx_max%ni])
         print ('------------------------------------------------------------------------' )
@@ -47,12 +48,12 @@ class Output(object):
         
     def print_end_msg(self, var, para ): 
         print ("After ------- %s seconds -------" % ( time.time()- para.start_time ) + ' s CPU time') 
-        print (vulcan_cfg.out_name[:-4] + ' has successfully run to steady-state with ' + str(para.count) + ' steps and ' + str("{:.2e}".format(var.t)) + ' s' )
+        print (cfg.paths.out_name[:-4] + ' has successfully run to steady-state with ' + str(para.count) + ' steps and ' + str("{:.2e}".format(var.t)) + ' s' )
         print ('long dy = ' + f"{var.longdy:.6e}" + ' and long dy/dt = ' + f"{var.longdydt:.6e}" )
         
         print ('total atom loss:')
-        for atom in vulcan_cfg.atom_list: 
-            if atom not in getattr(vulcan_cfg, 'loss_ex', []):
+        for atom in cfg.network.atom_list: 
+            if atom not in cfg.boundary_conditions.loss_ex:
                 print (atom + ': ' + f"{var.atom_loss[atom]:.4e}" + ' ')
       
         print ('negative solution counter:')
@@ -61,25 +62,25 @@ class Output(object):
         print (para.loss_count)
         print ('delta rejected counter:')
         print (para.delta_count)
-        if vulcan_cfg.use_shark: print ("It's a long journey to this shark planet. Don't stop bleeding.")
+        if cfg.output.use_shark: print ("It's a long journey to this shark planet. Don't stop bleeding.")
         print ('------ Live long and prosper \V/ ------') 
 
     def print_unconverged_msg(self, var, para, case): 
         
         if case == 2:
             print ("After ------- %s seconds -------" % ( time.time()- para.start_time ) + ' s CPU time')
-            print (vulcan_cfg.out_name[:-4] + ' did not reach steady-state:')
+            print (cfg.paths.out_name[:-4] + ' did not reach steady-state:')
             print ('long dy = ' + str(var.longdy) + ' and long dy/dt = ' + str(var.longdydt) )
-            print ('Integration stopped before converged...\nMaximal allowed runtime exceeded ('+ f"{vulcan_cfg.runtime:.1e}" + ' sec)')
+            print ('Integration stopped before converged...\nMaximal allowed runtime exceeded ('+ f"{cfg.solver.runtime:.1e}" + ' sec)')
         elif case == 3:
             print ("After ------- %s seconds -------" % ( time.time()- para.start_time ) + ' s CPU time')
-            print (vulcan_cfg.out_name[:-4] + ' did not reach steady-state:')
+            print (cfg.paths.out_name[:-4] + ' did not reach steady-state:')
             print ('long dy = ' + str(var.longdy) + ' and long dy/dt = ' + str(var.longdydt) )
-            print ('Integration stopped before converged...\nMaximal allowed steps exceeded ('+ str(vulcan_cfg.count_max) + ' steps)')
+            print ('Integration stopped before converged...\nMaximal allowed steps exceeded ('+ str(cfg.solver.count_max) + ' steps)')
         
         print ('total atom loss:')
-        for atom in vulcan_cfg.atom_list: 
-            if atom not in getattr(vulcan_cfg, 'loss_ex', []):
+        for atom in cfg.network.atom_list: 
+            if atom not in cfg.boundary_conditions.loss_ex:
                 print (atom + ': ' + f"{var.atom_loss[atom]:.4e}" + ' ')
         print ('negative solution counter:')
         print (para.nega_count)
@@ -93,23 +94,26 @@ class Output(object):
         
 
     def save_cfg(self, dname):
-        output_dir, out_name = vulcan_cfg.output_dir, vulcan_cfg.out_name
+        output_dir, out_name = cfg.paths.output_dir, cfg.paths.out_name
         if not os.path.exists(output_dir):
-            print ('The output directory assigned in vulcan_cfg.py does not exist.')
+            print ('The output directory assigned in vulcan_cfg.toml does not exist.')
             print( 'Directory ' , output_dir,  " created.")
             os.mkdir(output_dir)
 
-        # copy the vulcan_cfg.py file
-        with open('vulcan_cfg.py' ,'r') as f:
-            cfg_str = f.read()
-        with open(dname + '/' + output_dir + "cfg_" + out_name[:-3] + "txt", 'w') as f: f.write(cfg_str)
+        # Dump the fully-resolved config (including derived/defaulted fields) so
+        # the run record reflects exactly what was used, not just what the TOML set.
+        import json
+        cfg_str = json.dumps(cfg.model_dump(), indent=2, default=str)
+        out_path = os.path.join(output_dir, 'cfg_' + out_name[:-3] + 'json')
+        with open(out_path, 'w') as f:
+            f.write(cfg_str)
     
     def save_out(self, var, atm, para, dname): 
-        output_dir, out_name = vulcan_cfg.output_dir, vulcan_cfg.out_name
+        output_dir, out_name = cfg.paths.output_dir, cfg.paths.out_name
         output_file = dname + '/' + output_dir + out_name
         
         if not os.path.exists(output_dir):
-            print ('The output directory assigned in vulcan_cfg.py does not exist.')
+            print ('The output directory assigned in vulcan_cfg.toml does not exist.')
             print( 'Directory ' , output_dir,  " created.")
             os.mkdir(output_dir)
             
@@ -119,9 +123,9 @@ class Output(object):
             setattr(var, key, as_nparray)
         
         # plotting
-        if vulcan_cfg.use_plot_evo:
+        if cfg.plotting.use_plot_evo:
             self.plot_evo(var, atm)
-        if vulcan_cfg.use_plot_end:
+        if cfg.plotting.use_plot_end:
             self.plot_end(var, atm, para)
         else: plt.close()
         
@@ -130,16 +134,16 @@ class Output(object):
         
         for key in var.var_save:
             var_save[key] = getattr(var, key)
-        if vulcan_cfg.save_evolution:
+        if cfg.output.save_evolution:
             # slicing time-sequential data to reduce ouput filesize
-            fq = vulcan_cfg.save_evo_frq
+            fq = cfg.output.save_evo_frq
             for key in var.var_evol_save:
                 as_nparray = getattr(var, key)[::fq]
                 setattr(var, key, as_nparray)
                 var_save[key] = getattr(var, key)
 
         data = {'variable': var_save, 'atm': vars(atm), 'parameter': vars(para)}
-        if vulcan_cfg.output_humanread:
+        if cfg.output.output_humanread:
             with open(output_file, 'w') as outfile:
                 outfile.write(str(data))
         else:
@@ -156,23 +160,23 @@ class Output(object):
         plt.figure('live mixing ratios')
         plt.ion()
         color_index = 0
-        for color_index, sp in enumerate(vulcan_cfg.plot_spec):
+        for color_index, sp in enumerate(cfg.plotting.plot_spec):
             if sp in tex_labels: sp_lab = tex_labels[sp]
             else: sp_lab = sp
             if color_index == len(para.tableau20): # when running out of colors
                 para.tableau20.append(tuple(np.random.rand(3)))
-            if not vulcan_cfg.plot_height:
+            if not cfg.plotting.plot_height:
                 plt.plot(var.ymix[:,species.index(sp)], atm.pco/1.e6, color = para.tableau20[color_index], label=sp_lab)
-                if vulcan_cfg.use_condense and sp in vulcan_cfg.condense_sp:
+                if cfg.condensation.use_condense and sp in cfg.condensation.condense_sp:
                     plt.plot(atm.sat_mix[sp], atm.pco/1.e6, color = para.tableau20[color_index], label=sp_lab + ' sat', ls='--')
                 
                 plt.gca().set_yscale('log')
                 plt.gca().invert_yaxis()
                 plt.ylabel("Pressure (bar)")
-                plt.ylim((vulcan_cfg.P_b/1.E6,vulcan_cfg.P_t/1.E6))
+                plt.ylim((cfg.atmosphere.P_b/1.E6,cfg.atmosphere.P_t/1.E6))
             else: # plotting with height
                 plt.plot(var.ymix[:,species.index(sp)], atm.zmco/1.e5, color = para.tableau20[color_index], label=sp_lab)
-                if vulcan_cfg.use_condense and sp in vulcan_cfg.condense_sp:
+                if cfg.condensation.use_condense and sp in cfg.condensation.condense_sp:
                     plt.plot(atm.sat_mix[sp], atm.zco[1:]/1.e5, color = para.tableau20[color_index], label=sp_lab + ' sat', ls='--')
                 
                 plt.ylim((atm.zco[0]/1e5,atm.zco[-1]/1e5))
@@ -185,8 +189,8 @@ class Output(object):
         plt.xlabel("Mixing Ratios")
         plt.show(block=0)
         plt.pause(0.001)
-        if vulcan_cfg.use_save_movie: 
-            plt.savefig( vulcan_cfg.movie_dir+str(para.pic_count)+'.png', dpi=200)
+        if cfg.plotting.use_save_movie: 
+            plt.savefig( cfg.paths.movie_dir+str(para.pic_count)+'.png', dpi=200)
             para.pic_count += 1
         plt.clf()
     
@@ -207,25 +211,25 @@ class Output(object):
         plt.ylabel("Pressure (bar)")
         plt.show(block=0)
         plt.pause(0.1)
-        if vulcan_cfg.use_flux_movie: plt.savefig( 'plot/movie/flux-'+str(para.count)+'.jpg')
+        if cfg.plotting.use_flux_movie: plt.savefig( 'plot/movie/flux-'+str(para.count)+'.jpg')
         
         plt.clf()
         
     def plot_end(self, var, atm, para):
         
-        plot_dir = vulcan_cfg.plot_dir
+        plot_dir = cfg.paths.plot_dir
         colors = ['b','g','r','c','m','y','k','orange','pink', 'grey',\
         'darkred','darkblue','salmon','chocolate','mediumspringgreen','steelblue','plum','hotpink']
         
         plt.figure('live mixing ratios')
         color_index = 0
-        for sp in vulcan_cfg.plot_spec:
-            if not vulcan_cfg.plot_height:
+        for sp in cfg.plotting.plot_spec:
+            if not cfg.plotting.plot_height:
                 line, = plt.plot(var.ymix[:,species.index(sp)], atm.pco/1.e6, color = colors[color_index], label=sp)
                 plt.gca().set_yscale('log')
                 plt.gca().invert_yaxis() 
                 plt.ylabel("Pressure (bar)")
-                plt.ylim((vulcan_cfg.P_b/1.E6,vulcan_cfg.P_t/1.E6))
+                plt.ylim((cfg.atmosphere.P_b/1.E6,cfg.atmosphere.P_t/1.E6))
             else: # plotting with height
                 line, = plt.plot(var.ymix[:,species.index(sp)], atm.zmco/1.e5, color = colors[color_index], label=sp)
                 plt.ylim((atm.zco[0]/1e5,atm.zco[-1]/1e5))
@@ -238,17 +242,17 @@ class Output(object):
         plt.legend(frameon=0, prop={'size':14}, loc=3)
         plt.xlabel("Mixing Ratios")
         plt.savefig(plot_dir + 'mix.png')       
-        if vulcan_cfg.use_live_plot:
+        if cfg.plotting.use_live_plot:
             # plotting in the same window of real-time plotting
             plt.draw()
-        elif vulcan_cfg.use_PIL: # plotting in a new window with PIL package            
+        elif cfg.plotting.use_PIL: # plotting in a new window with PIL package            
             plot = Image.open(plot_dir + 'mix.png')
             plot.show()
             plt.close()
             
     def plot_evo(self, var, atm, plot_j=-1, plot_ymin=1e-20, dn=1):
-        plot_spec = vulcan_cfg.plot_spec
-        plot_dir = vulcan_cfg.plot_dir
+        plot_spec = cfg.plotting.plot_spec
+        plot_dir = cfg.paths.plot_dir
         t_time = np.array(var.t_time)
         ymix_time = np.array(var.y_time) / atm.n_0[:, np.newaxis]
         plt.figure('evolution')
@@ -262,22 +266,22 @@ class Output(object):
         plt.ylim((plot_ymin, 1.))
         plt.legend(frameon=0, prop={'size':14}, loc='best')
         plt.savefig(plot_dir + 'evo.png')
-        if vulcan_cfg.use_PIL:
+        if cfg.plotting.use_PIL:
             plot = Image.open(plot_dir + 'evo.png')
             plot.show()
             plt.close()
     
     def plot_TP(self, atm):
-        plot_dir = vulcan_cfg.plot_dir
+        plot_dir = cfg.paths.plot_dir
         #plt.figure('TPK')
         fig, ax1 = plt.subplots()
         ax2 = ax1.twiny() # ax1 and ax2 share y-axis
 
-        if not vulcan_cfg.plot_height:
+        if not cfg.plotting.plot_height:
             ax1.semilogy( atm.Tco, atm.pco/1.e6, c='black')
             ax2.loglog( atm.Kzz, atm.pico[1:-1]/1.e6, c='k', ls='--')
             plt.gca().invert_yaxis()
-            plt.ylim((vulcan_cfg.P_b/1.E6,vulcan_cfg.P_t/1.E6))
+            plt.ylim((cfg.atmosphere.P_b/1.E6,cfg.atmosphere.P_t/1.E6))
             ax1.set_ylabel("Pressure (bar)")
 
         else: # plotting with height
@@ -291,7 +295,7 @@ class Output(object):
         
         plot_name = plot_dir + 'TPK.png'
         plt.savefig(plot_name)
-        if vulcan_cfg.use_PIL:        
+        if cfg.plotting.use_PIL:        
             plot = Image.open(plot_name)
             plot.show()
             # close the matplotlib window

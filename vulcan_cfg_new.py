@@ -3,13 +3,10 @@
 # ============================================================================= 
 
 # ====== Setting up the elements included in the network ======
-atom_list = ['H', 'O', 'P',  'He']
+atom_list = ['H', 'O', 'C', 'N', 'S',  'He']
 # ====== Setting up paths and filenames for the input and output files  ======
 # input:
-#network = 'thermo/SNCHO_full_photo_network.txt'
-
-network = 'thermo/PHO_full_photo_network.txt'
-fastchem_dir = 'fastchem_input'
+network = 'thermo/SNCHO_photo_network_2025.txt'
 use_lowT_limit_rates = False
 gibbs_text = 'thermo/gibbs_text.txt' # (all the nasa9 files must be placed in the folder: thermo/NASA9/)
 cross_folder = 'thermo/photo_cross/'
@@ -23,7 +20,7 @@ vul_ini = 'output/' # the file to initialize the abundances for ini_mix = 'vulca
 output_dir = 'output/'
 plot_dir = 'plot/'
 movie_dir = 'plot/movie/'
-out_name =  'HD189-PHO-test-Photo.vul' # output file name
+out_name =  'HD189-test.vul' # output file name
 
 # ====== Setting up the elemental abundance ======
 use_solar = True # True: using the solar abundance from Table 8. K.Lodders 2019; False: using the customized elemental abundance. 
@@ -41,7 +38,7 @@ use_ini_cold_trap = True #True
 const_mix = {'CH4':2.7761E-4*2, 'O2':4.807e-4, 'He':0.09691, 'N2':8.1853E-5, 'H2':1. -2.7761E-4*2*4/2} 
 
 # ====== Setting up photochemistry ======
-use_photo = False
+use_photo = 0
 # astronomy input
 r_star = 0.805 # stellar radius in solar radius
 Rp = 1.138*7.1492E9 # Planetary radius (cm) (for computing gravity)
@@ -126,8 +123,7 @@ st_factor = 0.5
 conv_step = 500
 
 # ====== Setting up numerical parameters for the ODE solver ====== 
-ode_solver = 'Ros2' # case sensitive.  Options: 'Ros2' (2nd-order Verwer W-method, default) or 'Rodas3' (3rd-order Sandu Rosenbrock with cached banded LU; ~1.3-1.85× faster on HD189 const_mix benches; supports use_moldiff=True only).  See tests/bench_rodas3.py for empirical comparison.
-use_pi_controller = False # Gustafsson PI step-size controller.  Empirically tested on HD189 const_mix at rtol ∈ {0.25, 0.05, 0.02}: 4-11% slower than the legacy I-controller, never faster.  Default off — change only for experimentation.  See tests/bench_pi_controller.py.
+ode_solver = 'Ros2' # case sensitive
 use_print_prog = True
 use_print_delta = False
 print_prog_num = 500  # print the progress every x steps 
@@ -158,13 +154,13 @@ conver_ignore = [] # added 2023. to get rid off non-convergent species, e.g. HC3
 rtol = 0.25             # relative tolerence for adjusting the stepsize 
 post_conden_rtol = 0.1 # switched to this value after fix_species_time
 use_adapt_rtol = True
-rtol_min = 0.02
+rtol_min = 0.01
 rtol_max = 2.5  
 
 # ====== Setting up for ouwtput and plotting ======
 # plotting:
 plot_TP = False
-use_live_plot = False
+use_live_plot = True
 use_live_flux = False
 use_plot_end = False
 use_plot_evo = False
@@ -175,7 +171,7 @@ use_PIL = True
 live_plot_frq = 10
 save_movie_rate = live_plot_frq
 y_time_freq = 1  #  storing data for every 'y_time_freq' step
-plot_spec = ['H2O', 'H', 'PH3', 'PO', 'P2O3' ]
+plot_spec = ['H2O', 'CH4', 'CO', 'CO2', 'NH3', 'HCN', 'H2S', 'SO2']
 # output:
 output_humanread = False
 use_shark = False

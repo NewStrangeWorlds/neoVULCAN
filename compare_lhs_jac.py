@@ -27,10 +27,11 @@ for _p in (_base, _src):
 
 os.chdir(_base)
 
-import vulcan_cfg
+from neovulcan_runtime import get_cfg
+cfg = get_cfg()
 # Use a constant-mix init to avoid depending on stellar/photo tables.
-vulcan_cfg.ini_mix   = 'const_mix'
-vulcan_cfg.use_photo = False
+cfg.elements.ini_mix   = 'const_mix'
+cfg.photochemistry.use_photo = False
 
 import numpy as np
 
@@ -43,7 +44,7 @@ import chemistry_jax as chem_funs
 from chemistry_jax import ni
 from rates import ReadRate
 from ros2 import Ros2
-from vulcan_cfg import nz
+nz = cfg.atmosphere.nz
 
 
 def setup():
@@ -54,12 +55,12 @@ def setup():
     make_atm = build_atm.Atm()
     data_atm = make_atm.f_pico(data_atm)
     data_atm = make_atm.load_TPK(data_atm)
-    if vulcan_cfg.use_condense:
+    if cfg.condensation.use_condense:
         make_atm.sp_sat(data_atm)
 
     rate = ReadRate()
     data_var = rate.read_rate(data_var, data_atm)
-    if vulcan_cfg.use_lowT_limit_rates:
+    if cfg.network.use_lowT_limit_rates:
         data_var = rate.lim_lowT_rates(data_var, data_atm)
     data_var = rate.rev_rate(data_var, data_atm)
     data_var = rate.remove_rate(data_var)
@@ -94,9 +95,19 @@ def run_case(label, cfg_flags, solver, data_var, data_atm, numpy_method,
     Set numpy_returns_banded=True for reference methods that already return
     (ab, bw) (e.g. lhs_jac_banded_numpy) — they skip store_bandM.
     """
-    saved = {k: getattr(vulcan_cfg, k, None) for k in cfg_flags}
+    # Map flat legacy flag names to (section, field) so we can set/restore them
+    # across the new sectioned VulcanConfig.
+    def _locate(flag):
+        for sec_name in cfg.__class__.model_fields:
+            sec = getattr(cfg, sec_name)
+            if hasattr(sec, flag):
+                return sec, flag
+        raise KeyError(f'No section owns config flag {flag!r}')
+    flag_targets = {k: _locate(k) for k in cfg_flags}
+    saved = {k: getattr(sec, fld) for k, (sec, fld) in flag_targets.items()}
     for k, v in cfg_flags.items():
-        setattr(vulcan_cfg, k, v)
+        sec, fld = flag_targets[k]
+        setattr(sec, fld, v)
     try:
         # Re-build the JAX cache so it picks up the new flags.
         solver.invalidate_atm_cache()
@@ -116,7 +127,8 @@ def run_case(label, cfg_flags, solver, data_var, data_atm, numpy_method,
             lhs_b_B, bw_B = solver.store_bandM(lhs_dense, ni, nz)
     finally:
         for k, v in saved.items():
-            setattr(vulcan_cfg, k, v)
+            sec, fld = flag_targets[k]
+            setattr(sec, fld, v)
         solver.invalidate_atm_cache()
 
     assert bw_A == bw_B, f"{label}: bw mismatch {bw_A} vs {bw_B}"

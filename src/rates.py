@@ -2,11 +2,12 @@ import numpy as np
 from scipy import interpolate
 import os
 
-import vulcan_cfg
+from neovulcan_runtime import get_cfg
+cfg = get_cfg()
 import build_atm
 import chemistry_jax as chem_funs
 from chemistry_jax import ni, nr
-from vulcan_cfg import nz
+nz = cfg.atmosphere.nz
 
 compo = build_atm.compo
 compo_row = build_atm.compo_row
@@ -51,7 +52,7 @@ class ReadRate(object):
         photo_sp = []
         ion_sp = [] 
                
-        with open(vulcan_cfg.network) as f:
+        with open(cfg.network.network) as f:
             all_lines = f.readlines()
             for line_indx, line in enumerate(all_lines):
                 
@@ -242,7 +243,7 @@ class ReadRate(object):
         var.kinf_fun = kinf_fun
         
         var.photo_sp = sorted(set(photo_sp))
-        if vulcan_cfg.use_ion: var.ion_sp = sorted(set(ion_sp))
+        if cfg.photochemistry.use_ion: var.ion_sp = sorted(set(ion_sp))
         
         return var
     
@@ -260,7 +261,7 @@ class ReadRate(object):
         print ('Reverse rates from R1 to R' + str(var.stop_rev_indx-2))
         print ('Rates greater than 1e-6:')
         for i in rev_list:
-            if i in vulcan_cfg.remove_list:
+            if i in cfg.network.remove_list:
                  var.k[i] = np.repeat(0.,nz)
             else:
                 var.k_fun[i] = lambda temp, mm, i=i: var.k_fun[i-1](temp, mm)/chem_funs.Gibbs(i-1,temp)
@@ -274,7 +275,7 @@ class ReadRate(object):
     
     def remove_rate(self, var):
         
-        for i in vulcan_cfg.remove_list:
+        for i in cfg.network.remove_list:
             var.k[i] = np.repeat(0.,nz)
             var.k_fun[i] = lambda temp, mm, i=i: np.repeat(0.,nz)
             
@@ -321,8 +322,8 @@ class ReadRate(object):
         cross_T_raw = {}
         
         # In the end, we do not need photons beyond the longest-wavelength threshold from all species (different from absorption)
-        sp_label = np.genfromtxt(vulcan_cfg.cross_folder+'thresholds.txt',dtype=str, usecols=0) # taking the first column as labels
-        lmd_data = np.genfromtxt(vulcan_cfg.cross_folder+'thresholds.txt', skip_header = 1)[:,1] # discarding the fist column
+        sp_label = np.genfromtxt(cfg.network.cross_folder+'thresholds.txt',dtype=str, usecols=0) # taking the first column as labels
+        lmd_data = np.genfromtxt(cfg.network.cross_folder+'thresholds.txt', skip_header = 1)[:,1] # discarding the fist column
         
         # for setting up the wavelength coverage
         threshold = {label: row for label, row in zip(sp_label, lmd_data) if label in species} # only include the species in the current network
@@ -331,24 +332,24 @@ class ReadRate(object):
         # reading in cross sections into dictionaries
         for n, sp in enumerate(absp_sp):   
             
-            if vulcan_cfg.use_ion:
-                try: cross_raw[sp] = np.genfromtxt(vulcan_cfg.cross_folder+sp+'/'+sp+'_cross.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso','ion'])
+            if cfg.photochemistry.use_ion:
+                try: cross_raw[sp] = np.genfromtxt(cfg.network.cross_folder+sp+'/'+sp+'_cross.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso','ion'])
                 except Exception: print('\nMissing the cross section from ' + sp); raise
                 if sp in ion_sp:
-                    try: ion_ratio_raw[sp] = np.genfromtxt(vulcan_cfg.cross_folder+sp+'/'+sp+'_ion_branch.csv',dtype=float,delimiter=',',skip_header=1, names = True)
+                    try: ion_ratio_raw[sp] = np.genfromtxt(cfg.network.cross_folder+sp+'/'+sp+'_ion_branch.csv',dtype=float,delimiter=',',skip_header=1, names = True)
                     except Exception: print('\nMissing the ion branching ratio from ' + sp); raise
             else:
-                try: cross_raw[sp] = np.genfromtxt(vulcan_cfg.cross_folder+sp+'/'+sp+'_cross.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso'])
+                try: cross_raw[sp] = np.genfromtxt(cfg.network.cross_folder+sp+'/'+sp+'_cross.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso'])
                 except Exception: print('\nMissing the cross section from ' + sp); raise
             
             # reading in the branching ratios
             # for i in range(1,var.n_branch[sp]+1): # branch index should start from 1
             if sp in photo_sp: # excluding ion_sp 
-                try: ratio_raw[sp] = np.genfromtxt(vulcan_cfg.cross_folder+sp+'/'+sp+'_branch.csv',dtype=float,delimiter=',',skip_header=1, names = True)
+                try: ratio_raw[sp] = np.genfromtxt(cfg.network.cross_folder+sp+'/'+sp+'_branch.csv',dtype=float,delimiter=',',skip_header=1, names = True)
                 except Exception: print ('\nMissing the branching ratio from ' + sp); raise
                 
             # reading in temperature dependent cross sections
-            if sp in vulcan_cfg.T_cross_sp: 
+            if sp in cfg.photochemistry.T_cross_sp: 
                 T_list = []
                 for temp_file in os.listdir("thermo/photo_cross/" + sp + "/"):
                     if temp_file.startswith(sp) and temp_file.endswith("K.csv"):
@@ -357,9 +358,9 @@ class ReadRate(object):
                         T_list.append(int(temp) )
                         var.cross_T_sp_list[sp] = T_list
                 for tt in T_list:
-                    if vulcan_cfg.use_ion: # usually the T-dependent cross sections are only measured in the photodissociation-relavent wavelengths so cross_tot = cross_diss
-                        cross_T_raw[(sp, tt)] = np.genfromtxt(vulcan_cfg.cross_folder+sp+'/'+sp+'_cross_'+str(tt)+'K.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso','ion'])
-                    else: cross_T_raw[(sp, tt)] = np.genfromtxt(vulcan_cfg.cross_folder+sp+'/'+sp+'_cross_'+str(tt)+'K.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso'])
+                    if cfg.photochemistry.use_ion: # usually the T-dependent cross sections are only measured in the photodissociation-relavent wavelengths so cross_tot = cross_diss
+                        cross_T_raw[(sp, tt)] = np.genfromtxt(cfg.network.cross_folder+sp+'/'+sp+'_cross_'+str(tt)+'K.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso','ion'])
+                    else: cross_T_raw[(sp, tt)] = np.genfromtxt(cfg.network.cross_folder+sp+'/'+sp+'_cross_'+str(tt)+'K.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso'])
                 # room-T cross section
                 cross_T_raw[(sp, 300)] = cross_raw[sp]
                 var.cross_T_sp_list[sp].append(300)
@@ -390,10 +391,10 @@ class ReadRate(object):
         print ("Photodissociation threshold: " + "{:.1f}".format(diss_max) )
         print ("Using wavelength bins from " + "{:.1f}".format(bin_min) + " to " +  str(bin_max) )
         
-        var.dbin1 = vulcan_cfg.dbin1
-        var.dbin2 = vulcan_cfg.dbin2
-        if vulcan_cfg.dbin_12trans >= bin_min and vulcan_cfg.dbin_12trans <= bin_max:
-            bins = np.concatenate(( np.arange(bin_min,vulcan_cfg.dbin_12trans, var.dbin1), np.arange(vulcan_cfg.dbin_12trans,bin_max, var.dbin2) ))
+        var.dbin1 = cfg.photochemistry.dbin1
+        var.dbin2 = cfg.photochemistry.dbin2
+        if cfg.photochemistry.dbin_12trans >= bin_min and cfg.photochemistry.dbin_12trans <= bin_max:
+            bins = np.concatenate(( np.arange(bin_min,cfg.photochemistry.dbin_12trans, var.dbin1), np.arange(cfg.photochemistry.dbin_12trans,bin_max, var.dbin2) ))
         else: bins = np.arange(bin_min,bin_max, var.dbin1)
         var.bins = bins
         var.nbin = len(bins)
@@ -420,14 +421,14 @@ class ReadRate(object):
         
         # read cross of disscoiation
         var.cross_J = dict([((sp,i), np.zeros(var.nbin)) for sp in photo_sp for i in range(1,var.n_branch[sp]+1)])
-        var.cross_scat = dict([(sp, np.zeros(var.nbin)) for sp in vulcan_cfg.scat_sp])
+        var.cross_scat = dict([(sp, np.zeros(var.nbin)) for sp in cfg.photochemistry.scat_sp])
         
         # for temperature-dependent cross sections
-        var.cross_T = dict([(sp, np.zeros((nz, var.nbin) )) for sp in vulcan_cfg.T_cross_sp ])
-        var.cross_J_T = dict([((sp,i), np.zeros((nz, var.nbin) )) for sp in vulcan_cfg.T_cross_sp for i in range(1,var.n_branch[sp]+1) ])
+        var.cross_T = dict([(sp, np.zeros((nz, var.nbin) )) for sp in cfg.photochemistry.T_cross_sp ])
+        var.cross_J_T = dict([((sp,i), np.zeros((nz, var.nbin) )) for sp in cfg.photochemistry.T_cross_sp for i in range(1,var.n_branch[sp]+1) ])
         
         #read cross of ionisation
-        if vulcan_cfg.use_ion: var.cross_Jion = dict([((sp,i), np.zeros(var.nbin)) for sp in ion_sp for i in range(1,var.ion_branch[sp]+1)])
+        if cfg.photochemistry.use_ion: var.cross_Jion = dict([((sp,i), np.zeros(var.nbin)) for sp in ion_sp for i in range(1,var.ion_branch[sp]+1)])
         
         for sp in photo_sp: # photodissociation only; photoionization takes a separate branch ratio file
             # for values outside the boundary => fill_value = 0
@@ -451,7 +452,7 @@ class ReadRate(object):
             
             # make var.cross_T[(sp,i)] and var.cross_J_T[(sp,i)] here in 2D array: nz * bins (same shape as tau)
             # T-dependent cross sections are usually only measured in the photodissociation-relavent wavelengths so cross_tot = cross_diss
-            if sp in vulcan_cfg.T_cross_sp:
+            if sp in cfg.photochemistry.T_cross_sp:
                 
                 # T list of species sp that have T-depedent cross sections (inclduing 300 K for inter_cross)
                 T_list = np.array(var.cross_T_sp_list[sp])
@@ -559,7 +560,7 @@ class ReadRate(object):
                                         var.cross_J_T[(sp,i)][lev, n] = inter_cross_J_highT(ld) * inter_ratio[i](ld) # same inter_ratio[i](ld) as the standard one above
                     
                                             
-        if vulcan_cfg.use_ion: 
+        if cfg.photochemistry.use_ion: 
             for sp in ion_sp:
                 if sp not in photo_sp: 
                     inter_cross = interpolate.interp1d(cross_raw[sp]['lambda'], cross_raw[sp]['cross'], bounds_error=False, fill_value=0)
@@ -578,11 +579,11 @@ class ReadRate(object):
                     if sp not in photo_sp: var.cross[sp][n] = inter_cross(ld)                
                     for i in range(1,var.ion_branch[sp]+1): 
                         var.cross_Jion[(sp,i)][n] = inter_cross_Jion(ld) * ion_inter_ratio[i](ld)
-        # end of if vulcan_cfg.use_ion: 
+        # end of if cfg.photochemistry.use_ion: 
                 
         # reading in cross sections of Rayleigh Scattering
-        for sp in vulcan_cfg.scat_sp:
-            scat_raw[sp] = np.genfromtxt(vulcan_cfg.cross_folder + 'rayleigh/' + sp+'_scat.txt',dtype=float,\
+        for sp in cfg.photochemistry.scat_sp:
+            scat_raw[sp] = np.genfromtxt(cfg.network.cross_folder + 'rayleigh/' + sp+'_scat.txt',dtype=float,\
             skip_header=1, names = ['lambda','cross'])
 
             # for values outside the boundary => fill_value = 0

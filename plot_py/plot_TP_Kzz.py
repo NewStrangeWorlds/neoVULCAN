@@ -4,11 +4,16 @@ sys.path.insert(0, '../') # including the upper level of directory for the path 
 import numpy as np 
 import matplotlib.pyplot as plt
 import matplotlib.legend as lg
-import vulcan_cfg
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from neovulcan_runtime import get_cfg_or_load
+cfg = get_cfg_or_load(
+    _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'vulcan_cfg.toml'),
+    base_dir=_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 try: from PIL import Image
 except ImportError: 
     try: import Image
-    except: vulcan_cfg.use_PIL = False
+    except: cfg.plotting.use_PIL = False
 import os, sys
 import pickle
 
@@ -19,7 +24,7 @@ vul_data = '../output/db02-HD189.vul'
 # Setting the 4th input argument as the output eps filename        
 plot_name = 'TPK-HD189'
 
-plot_dir = '../' + vulcan_cfg.plot_dir
+plot_dir = '../' + cfg.paths.plot_dir
 
 
 colors = ['c','b','g','r','m','y','k','orange','pink','grey','darkred','darkblue','salmon','chocolate','steelblue','plum','hotpink']
@@ -60,7 +65,7 @@ plt.ylabel("Pressure (bar)")
 plt.title('HD189733b')
 plt.savefig(plot_dir + plot_name + '.png')
 plt.savefig(plot_dir + plot_name + '.eps')
-if vulcan_cfg.use_PIL == True:
+if cfg.plotting.use_PIL == True:
     plot = Image.open(plot_dir + plot_name + '.png')
     plot.show()
 else: plt.show()

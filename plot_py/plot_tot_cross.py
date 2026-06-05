@@ -5,7 +5,12 @@
 import sys
 sys.path.insert(0, '../') # including the upper level of directory for the path of modules
 
-import vulcan_cfg
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from neovulcan_runtime import get_cfg_or_load
+cfg = get_cfg_or_load(
+    _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'vulcan_cfg.toml'),
+    base_dir=_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy import interpolate
@@ -13,7 +18,7 @@ import csv, ast
 try: from PIL import Image
 except ImportError: 
     try: import Image
-    except: vulcan_cfg.use_PIL = False
+    except: cfg.plotting.use_PIL = False
 
 
 plot_dir = '../plot/'
@@ -60,7 +65,7 @@ color_indx = 0
 for sp in sp_list:
     if sp in tex_labels: tex_sp = tex_labels[sp]
     else: tex_sp = sp
-    cross_raw[sp] = np.genfromtxt('../'+ vulcan_cfg.cross_folder+sp+'_cross.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso','ion'])
+    cross_raw[sp] = np.genfromtxt('../'+ cfg.network.cross_folder+sp+'_cross.csv',dtype=float,delimiter=',',skip_header=1, names = ['lambda','cross','disso','ion'])
     inter_cross = interpolate.interp1d(cross_raw[sp]['lambda'], cross_raw[sp]['cross'], bounds_error=False, fill_value=0)
     inter_disso = interpolate.interp1d(cross_raw[sp]['lambda'], cross_raw[sp]['disso'], bounds_error=False, fill_value=0)
     cross[sp] = np.zeros(len(lmd_list))

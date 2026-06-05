@@ -4,11 +4,16 @@ sys.path.insert(0, '../') # including the upper level of directory for the path 
 import numpy as np 
 import matplotlib.pyplot as plt
 import matplotlib.legend as lg
-import vulcan_cfg
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from neovulcan_runtime import get_cfg_or_load
+cfg = get_cfg_or_load(
+    _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'vulcan_cfg.toml'),
+    base_dir=_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 try: from PIL import Image
 except ImportError: 
     try: import Image
-    except: vulcan_cfg.use_PIL = False
+    except: cfg.plotting.use_PIL = False
 import os, sys
 import pickle
 
@@ -27,7 +32,7 @@ plot_name = 'evolution'
 plot_p = 1e5
 
 
-plot_dir = '../' + vulcan_cfg.plot_dir
+plot_dir = '../' + cfg.paths.plot_dir
 colors = ['c','b','g','r','m','y','k','orange','pink','grey','darkred','darkblue','salmon','chocolate','steelblue','plum','hotpink']
 
 tex_labels = {'H':'H','H2':'H$_2$','O':'O','OH':'OH','H2O':'H$_2$O','CH':'CH','C':'C','CH2':'CH$_2$','CH3':'CH$_3$','CH4':'CH$_4$','HCO':'HCO','H2CO':'H$_2$CO', 'C4H2':'C$_4$H$_2$',\
@@ -74,7 +79,7 @@ plt.ylabel("Mixing Ratio", fontsize=12)
 #plt.title('Earth (CIRA equator in January 1986)', fontsize=14)
 plt.savefig(plot_dir + plot_name + '.png')
 plt.savefig(plot_dir + plot_name + '.eps')
-if vulcan_cfg.use_PIL == True:
+if cfg.plotting.use_PIL == True:
     plot = Image.open(plot_dir + plot_name + '.png')
     plot.show()
 else: plt.show()

@@ -7,6 +7,8 @@ Pillow>=11.0       # optional: for live plot display; code falls back gracefully
 jax>=0.6.2
 jaxlib>=0.6.2      # install the GPU variant if a CUDA device is available:
                    # pip install "jax[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pydantic>=2.0,<3   # typed config schema (replaces vulcan_cfg.py loose globals)
+tomli>=2.0; python_version < "3.11"   # TOML parser; stdlib tomllib used on 3.11+
 
 # Phase 3 (diffrax ODE solver, optional)
 # diffrax>=0.6

@@ -1,6 +1,6 @@
 '''
 This script reads VULCAN output (.vul) files using pickle and plot the species volumn mixing ratios as a function of pressure, with the initial abundances (typically equilibrium) shown in dashed lines.
-Plots are saved in the folder assigned in vulcan_cfg.py, with the default plot_dir = 'plot/'.
+Plots are saved in the folder assigned in vulcan_cfg.toml, with the default plot_dir = 'plot/'.
 '''
 
 import sys
@@ -9,11 +9,16 @@ sys.path.insert(0, '../') # including the upper level of directory for the path 
 import numpy as np 
 import matplotlib.pyplot as plt
 import matplotlib.legend as lg
-import vulcan_cfg
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from neovulcan_runtime import get_cfg_or_load
+cfg = get_cfg_or_load(
+    _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'vulcan_cfg.toml'),
+    base_dir=_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 try: from PIL import Image
 except ImportError: 
     try: import Image
-    except: vulcan_cfg.use_PIL = False
+    except: cfg.plotting.use_PIL = False
 import os, sys
 import pickle
 from phy_const import kb, Navo
@@ -34,10 +39,10 @@ vul_data = '../output/Jupiter_rtol005.vul'
 
 
 
-plot_dir = '../' + vulcan_cfg.plot_dir
+plot_dir = '../' + cfg.paths.plot_dir
 # Checking if the plot folder exsists
 if not os.path.exists(plot_dir):
-    print ('The plotting directory assigned in vulcan_cfg.py does not exist.')
+    print ('The plotting directory assigned in vulcan_cfg.toml does not exist.')
     print( 'Directory ' , plot_dir,  " created.")
     os.mkdir(plot_dir)
 
@@ -226,7 +231,7 @@ ax.add_artist(leg1)
 
 plt.savefig(plot_dir + plot_name + '.png')
 #plt.savefig(plot_dir + plot_name + '.pdf')
-if vulcan_cfg.use_PIL == True:
+if cfg.plotting.use_PIL == True:
     plot = Image.open(plot_dir + plot_name + '.png')
     plot.show()
 else: plt.show()

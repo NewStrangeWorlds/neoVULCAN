@@ -42,7 +42,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 BASELINE = os.path.join(HERE, 'test_lhsjac_baseline.pkl')
 
 sys.path.insert(0, os.path.join(HERE, 'src'))
+sys.path.insert(0, HERE)
 os.chdir(HERE)
+
+from neovulcan_runtime import get_cfg_or_load
+cfg = get_cfg_or_load(os.path.join(HERE, 'vulcan_cfg.toml'), base_dir=HERE)
 
 
 def make_inputs(nz, ni, seed=42):
@@ -114,13 +118,19 @@ BC_CASES = [
 ]
 
 
-def run_all(solver, var, atm, vulcan_cfg):
+def run_all(solver, var, atm):
+    """Run every lhs_jac method × BC combination.
+
+    BC flags (``use_botflux`` etc.) are mutated on ``cfg.boundary_conditions``
+    in place — the methods read from the singleton, so changes take effect
+    immediately.
+    """
     results = {}
     for method_name in METHODS:
         method = getattr(solver, method_name)
         for bc_label, bc_flags in BC_CASES:
             for attr, val in bc_flags.items():
-                setattr(vulcan_cfg, attr, val)
+                setattr(cfg.boundary_conditions, attr, val)
             key = f'{method_name}/{bc_label}'
             results[key] = method(var, atm).copy()
     return results
@@ -132,16 +142,15 @@ def main():
                         help='Record golden baseline from current code')
     args = parser.parse_args()
 
-    import vulcan_cfg
     import chem_funs
     from chem_funs import ni, nr
-    from vulcan_cfg import nz
     from ode_solver import ODESolver
 
-    vulcan_cfg.non_gas_sp   = None
-    vulcan_cfg.use_condense = False
-    vulcan_cfg.use_fix_sp_bot = {}
-    vulcan_cfg.diff_esc     = []
+    nz = cfg.atmosphere.nz
+    cfg.condensation.non_gas_sp   = []
+    cfg.condensation.use_condense = False
+    cfg.boundary_conditions.use_fix_sp_bot = {}
+    cfg.boundary_conditions.diff_esc     = []
 
     var, atm = make_inputs(nz, ni)
     # Provide zero rate constants so neg_achemjac returns a zero matrix;
@@ -150,7 +159,7 @@ def main():
     solver = ODESolver()
 
     if args.save:
-        results = run_all(solver, var, atm, vulcan_cfg)
+        results = run_all(solver, var, atm)
         with open(BASELINE, 'wb') as f:
             pickle.dump(results, f)
         print(f'Baseline saved → {BASELINE}')
@@ -163,7 +172,7 @@ def main():
     with open(BASELINE, 'rb') as f:
         golden = pickle.load(f)
 
-    results = run_all(solver, var, atm, vulcan_cfg)
+    results = run_all(solver, var, atm)
 
     passed = failed = 0
     for key in sorted(golden):

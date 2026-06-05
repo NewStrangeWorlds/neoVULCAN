@@ -23,25 +23,51 @@ PYTHON = sys.executable
 
 
 # ---------------------------------------------------------------------------
-# Config overrides (same as test_regression.py)
+# Config overrides — deep-merged into the base TOML in the temp directory.
 # ---------------------------------------------------------------------------
 
-def cfg_overrides(n_steps: int) -> str:
-    return textwrap.dedent(f"""\
-        # ---- profile_wallclock.py overrides ----
-        count_max       = {n_steps}
-        runtime         = 1e30
-        use_live_plot   = False
-        use_plot_end    = False
-        use_plot_evo    = False
-        use_save_movie  = False
-        use_flux_movie  = False
-        save_evolution  = False
-        out_name        = 'profile_output.vul'
-        # ini_mix         = 'const_mix'
-        # const_mix       = {{'H2': 0.855, 'He': 0.144, 'H2O': 5e-4, 'PH3': 6e-7}}
-        use_ini_cold_trap = False
-    """)
+def cfg_overrides(n_steps: int) -> dict:
+    return {
+        'solver':       {'count_max': n_steps, 'runtime': 1e30},
+        'paths':        {'out_name':  'profile_output.vul'},
+        'condensation': {'use_ini_cold_trap': False},
+        'output':       {'save_evolution': False},
+        'plotting':     {'use_live_plot': False, 'use_plot_end': False,
+                         'use_plot_evo':  False, 'use_save_movie': False,
+                         'use_flux_movie': False},
+    }
+
+
+def _toml_value(v):
+    if isinstance(v, bool):
+        return 'true' if v else 'false'
+    if isinstance(v, str):
+        return f'"{v}"'
+    if isinstance(v, list):
+        return '[' + ', '.join(_toml_value(x) for x in v) + ']'
+    if isinstance(v, dict):
+        return '{ ' + ', '.join(f'{k} = {_toml_value(vv)}' for k, vv in v.items()) + ' }'
+    return repr(v)
+
+
+def _write_merged_toml(tmp_dir: str, overrides: dict) -> None:
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib
+    sys.path.insert(0, HERE)
+    from neovulcan_config import _deep_merge
+    base_path = os.path.join(tmp_dir, 'vulcan_cfg.toml')
+    with open(base_path, 'rb') as f:
+        merged = _deep_merge(tomllib.load(f), overrides)
+    with open(base_path, 'w') as f:
+        for section, fields in merged.items():
+            if not isinstance(fields, dict):
+                continue
+            f.write(f'[{section}]\n')
+            for k, v in fields.items():
+                f.write(f'{k} = {_toml_value(v)}\n')
+            f.write('\n')
 
 
 # ---------------------------------------------------------------------------
@@ -186,11 +212,7 @@ def apply_patches(src: str) -> str:
 def run(n_steps: int):
     with tempfile.TemporaryDirectory(prefix='vulcan_wallclock_') as tmp:
         shutil.copytree(HERE, tmp, dirs_exist_ok=True)
-
-        # Apply test config
-        with open(os.path.join(tmp, 'vulcan_cfg.py'), 'a') as f:
-            f.write('\n')
-            f.write(cfg_overrides(n_steps))
+        _write_merged_toml(tmp, cfg_overrides(n_steps))
 
         # Patch ode_solver.py
         solver_path = os.path.join(tmp, 'src', 'ode_solver.py')

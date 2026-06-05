@@ -1,3 +1,6 @@
+from neovulcan_runtime import get_cfg
+cfg = get_cfg()
+
 #!/usr/bin/env python3
 """
 benchmark_perf.py — wall-time comparison of old VULCAN vs neoVULCAN (JAX).

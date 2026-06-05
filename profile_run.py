@@ -2,9 +2,9 @@
 """
 profile_run.py — profile a full neoVULCAN run and report where time goes.
 
-Copies neoVULCAN into a temp directory, applies the same config overrides
-as test_regression.py, runs vulcan.py under cProfile, then displays a
-grouped summary of cumulative time by subsystem.
+Copies neoVULCAN into a temp directory, writes a TOML override config, runs
+vulcan.py under cProfile, then displays a grouped summary of cumulative time
+by subsystem.
 
 Usage:
     python profile_run.py [--steps N]   (default: 1000)
@@ -23,22 +23,52 @@ HERE   = os.path.dirname(os.path.abspath(__file__))
 PYTHON = sys.executable
 
 
-def cfg_overrides(n_steps: int) -> str:
-    return textwrap.dedent(f"""\
-        # ---- profile_run.py overrides ----
-        count_max       = {n_steps}
-        runtime         = 1e30
-        use_live_plot   = False
-        use_plot_end    = False
-        use_plot_evo    = False
-        use_save_movie  = False
-        use_flux_movie  = False
-        save_evolution  = False
-        out_name        = 'profile_output.vul'
-        ini_mix         = 'const_mix'
-        const_mix       = {{'H2': 0.855, 'He': 0.144, 'H2O': 5e-4, 'PH3': 6e-7}}
-        use_ini_cold_trap = False
-    """)
+def cfg_overrides(n_steps: int) -> dict:
+    """Sectioned overrides to deep-merge into the base TOML."""
+    return {
+        'solver':       {'count_max': n_steps, 'runtime': 1e30},
+        'paths':        {'out_name':  'profile_output.vul'},
+        'elements':     {'ini_mix':   'const_mix',
+                         'const_mix': {'H2': 0.855, 'He': 0.144, 'H2O': 5e-4, 'PH3': 6e-7}},
+        'condensation': {'use_ini_cold_trap': False},
+        'output':       {'save_evolution': False},
+        'plotting':     {'use_live_plot': False, 'use_plot_end': False,
+                         'use_plot_evo':  False, 'use_save_movie': False,
+                         'use_flux_movie': False},
+    }
+
+
+def _toml_value(v):
+    if isinstance(v, bool):
+        return 'true' if v else 'false'
+    if isinstance(v, str):
+        return f'"{v}"'
+    if isinstance(v, list):
+        return '[' + ', '.join(_toml_value(x) for x in v) + ']'
+    if isinstance(v, dict):
+        return '{ ' + ', '.join(f'{k} = {_toml_value(vv)}' for k, vv in v.items()) + ' }'
+    return repr(v)
+
+
+def _write_merged_toml(tmp_dir: str, overrides: dict) -> None:
+    """Deep-merge `overrides` into tmp_dir/vulcan_cfg.toml and write it back."""
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib
+    sys.path.insert(0, HERE)  # use the live neovulcan_config, not the tmp copy
+    from neovulcan_config import _deep_merge
+    base_path = os.path.join(tmp_dir, 'vulcan_cfg.toml')
+    with open(base_path, 'rb') as f:
+        merged = _deep_merge(tomllib.load(f), overrides)
+    with open(base_path, 'w') as f:
+        for section, fields in merged.items():
+            if not isinstance(fields, dict):
+                continue
+            f.write(f'[{section}]\n')
+            for k, v in fields.items():
+                f.write(f'{k} = {_toml_value(v)}\n')
+            f.write('\n')
 
 
 def run_profile(n_steps: int) -> str:
@@ -46,10 +76,7 @@ def run_profile(n_steps: int) -> str:
 
     with tempfile.TemporaryDirectory(prefix='vulcan_profile_') as tmp:
         shutil.copytree(HERE, tmp, dirs_exist_ok=True)
-
-        with open(os.path.join(tmp, 'vulcan_cfg.py'), 'a') as f:
-            f.write('\n')
-            f.write(cfg_overrides(n_steps))
+        _write_merged_toml(tmp, cfg_overrides(n_steps))
 
         cmd = [
             PYTHON, '-m', 'cProfile',

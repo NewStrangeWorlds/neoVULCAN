@@ -13,10 +13,11 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 # Patch vulcan_cfg before any imports that read it at module level
-import vulcan_cfg
-vulcan_cfg.ini_mix = 'const_mix'
-vulcan_cfg.const_mix = {'H2': 0.855, 'He': 0.144, 'H2O': 5e-4, 'PH3': 6e-7}
-vulcan_cfg.use_photo = False  # skip photochemistry setup for this test
+from neovulcan_runtime import get_cfg
+cfg = get_cfg()
+cfg.elements.ini_mix = 'const_mix'
+cfg.elements.const_mix = {'H2': 0.855, 'He': 0.144, 'H2O': 5e-4, 'PH3': 6e-7}
+cfg.photochemistry.use_photo = False  # skip photochemistry setup for this test
 
 import numpy as np
 
@@ -36,7 +37,7 @@ from rates import ReadRate
 rate = ReadRate()
 data_var = rate.read_rate(data_var, data_atm)
 
-if vulcan_cfg.use_lowT_limit_rates:
+if cfg.network.use_lowT_limit_rates:
     data_var = rate.lim_lowT_rates(data_var, data_atm)
 
 data_var = rate.rev_rate(data_var, data_atm)
