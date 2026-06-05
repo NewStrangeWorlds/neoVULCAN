@@ -22,13 +22,14 @@ import os
 import sys
 from collections import defaultdict
 
-_root = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_root, 'src'))
+_here = os.path.dirname(os.path.abspath(__file__))            # .../neoVULCAN/src
+_root = os.path.dirname(_here)                                # .../neoVULCAN
+sys.path.insert(0, _here)
 sys.path.insert(0, _root)
 
 _argp = argparse.ArgumentParser(description='Generate src/chemistry_jax.py from a VULCAN network file.')
 _argp.add_argument('-c', '--config', default='vulcan_cfg.toml',
-                   help='Path to TOML config file (default: vulcan_cfg.toml in this directory)')
+                   help='Path to TOML config file (default: vulcan_cfg.toml in the neoVULCAN root)')
 _args = _argp.parse_args()
 
 from neovulcan_config import VulcanConfig
@@ -37,7 +38,7 @@ _cfg_path = _args.config if os.path.isabs(_args.config) else os.path.join(_root,
 set_cfg(VulcanConfig.from_toml(_cfg_path, base_dir=_root))
 cfg = get_cfg()
 
-_OFNAME = os.path.join(_root, 'src', 'chemistry_jax.py')
+_OFNAME = os.path.join(_here, 'chemistry_jax.py')
 
 
 # ---------------------------------------------------------------------------

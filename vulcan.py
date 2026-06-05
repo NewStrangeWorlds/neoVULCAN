@@ -82,7 +82,7 @@ if not _args.no_remake_chemistry:
     print('Making chemistry_jax.py ...')
     import subprocess
     subprocess.run(
-        [sys.executable, 'make_chemistry_jax.py', '-c', _args.config],
+        [sys.executable, os.path.join('src', 'make_chemistry_jax.py'), '-c', _args.config],
         check=True,
     )
 

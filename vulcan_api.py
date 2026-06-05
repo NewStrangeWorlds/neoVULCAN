@@ -13,7 +13,7 @@ import numpy as np
 def _regen_chemistry_jax(base_dir, config_path):
     """Run make_chemistry_jax.py from base_dir so relative paths inside it work."""
     subprocess.run(
-        [sys.executable, os.path.join(base_dir, 'make_chemistry_jax.py'),
+        [sys.executable, os.path.join(base_dir, 'src', 'make_chemistry_jax.py'),
          '-c', config_path],
         cwd=base_dir,
         check=True,

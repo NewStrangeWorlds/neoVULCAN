@@ -7,6 +7,7 @@ sys.path.insert(0, '../') # including the upper level of directory for the path 
 
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'src'))
 from neovulcan_runtime import get_cfg_or_load
 cfg = get_cfg_or_load(
     _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'vulcan_cfg.toml'),
