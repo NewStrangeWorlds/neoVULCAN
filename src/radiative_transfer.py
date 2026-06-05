@@ -10,6 +10,16 @@ from vulcan_cfg import nz
 species = chem_funs.spec_list
 
 
+def make_rt():
+    """Construct the radiative-transfer solver selected by vulcan_cfg.rt_scheme."""
+    scheme = getattr(vulcan_cfg, 'rt_scheme', 'two-stream').lower()
+    if scheme in ('two-stream', 'twostream', '2-stream', '2stream'):
+        return TwoStreamRT()
+    if scheme in ('disort', 'disortpp', 'disort++'):
+        return DisortRT()
+    raise ValueError(f"Unknown rt_scheme {scheme!r}; expected 'two-stream' or 'disort'.")
+
+
 @runtime_checkable
 class RadiativeTransfer(Protocol):
     """Protocol for radiative transfer schemes.
@@ -283,3 +293,139 @@ class TwoStreamRT:
                 var.Jion_sp[(sp, 0)]   += val
                 if var.ion_rate_index[(sp, nbr)] not in vulcan_cfg.remove_list:
                     var.k[var.ion_rate_index[(sp, nbr)]] = val * vulcan_cfg.f_diurnal
+
+
+class DisortRT(TwoStreamRT):
+    """Discrete-ordinates radiative transfer using the DisORT++ Python bindings.
+
+    Drop-in replacement for ``TwoStreamRT``: shares the optical-depth assembly
+    and the J / Jion spectral integrals, but replaces the two-stream Eddington
+    flux step with a per-bin DISORT solve.  Results are written into the same
+    ``var`` arrays (``aflux``, ``sflux``, ``dflux_u``, ``dflux_d``) so the rest
+    of the pipeline (convergence checks, plotting) is unchanged.
+    """
+
+    def __init__(self):
+        super().__init__()
+        import disortpp  # raise at construction if the package isn't installed
+        self._disortpp = disortpp
+        self._nstr     = int(getattr(vulcan_cfg, 'disort_nstr', 8))
+        self._solver   = disortpp.create_flux_solver(self._nstr)
+        # DisORT++ ≥ 2.2 exposes ``index_from_bottom`` on DisortFluxConfig.
+        # When available, DisORT++ reverses the input/output arrays internally,
+        # so we can pass VULCAN's native bottom→top ordering through untouched.
+        self._native_bottom = hasattr(disortpp.DisortFluxConfig(1, self._nstr),
+                                      'index_from_bottom')
+        self._cfg      = None
+        self._cfg_nz   = None
+
+    def _make_cfg(self):
+        """Build (and cache) the DisortFluxConfig used across bins.
+
+        The config's per-layer arrays are mutated in the per-bin loop, but its
+        size, stream count, and phase-function choice are fixed for the run.
+        """
+        cfg = self._disortpp.DisortFluxConfig(nz, self._nstr)
+        cfg.direct_beam_mu = float(np.cos(vulcan_cfg.sl_angle))
+        cfg.surface_albedo = 0.0
+        if self._native_bottom:
+            cfg.index_from_bottom = True
+        cfg.allocate()
+        cfg.delta_tau          = np.zeros(nz)
+        cfg.single_scat_albedo = np.zeros(nz)
+        # The bulk scatterers in vulcan_cfg.scat_sp (e.g. N2, O2) contribute
+        # Rayleigh scattering; use the matching phase function rather than the
+        # 2-stream's ag0-Henyey-Greenstein approximation.
+        cfg.set_rayleigh()
+        self._cfg    = cfg
+        self._cfg_nz = nz
+        return cfg
+
+    def _compute_flux(self, var, atm):
+        nbins = len(var.bins)
+        mu0   = float(np.cos(vulcan_cfg.sl_angle))
+
+        # ------------------------------------------------------------------
+        # Per-layer optical depth (bottom→top VULCAN order) reconstructed from
+        # the cumulative tau just built by _compute_tau, plus a separate sum
+        # of the scattering contribution for the single-scattering albedo.
+        # ------------------------------------------------------------------
+        layer_tau = var.tau[:-1] - var.tau[1:]                       # (nz, nbins)
+
+        if vulcan_cfg.scat_sp:
+            scat_idx   = np.array([species.index(sp) for sp in vulcan_cfg.scat_sp])
+            scat_cross = np.stack([var.cross_scat[sp] for sp in vulcan_cfg.scat_sp])
+            layer_tau_scat = atm.dz[:, None] * (var.y[:, scat_idx] @ scat_cross)
+        else:
+            layer_tau_scat = np.zeros_like(layer_tau)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            w0 = layer_tau_scat / layer_tau
+        w0 = np.nan_to_num(w0, nan=0.0, posinf=0.0, neginf=0.0)
+        np.minimum(w0, 1. - 1.e-8, out=w0)
+
+        # solve_flux_spectral expects per-wavenumber × per-layer arrays; transpose
+        # (nz, nbins) → (nbins, nz).  If DisORT++ supports `index_from_bottom`,
+        # VULCAN's native bottom→top layer order goes through unchanged;
+        # otherwise reverse the layer axis first.
+        if self._native_bottom:
+            delta_tau_d = layer_tau.T
+            w0_d        = w0.T
+        else:
+            delta_tau_d = layer_tau[::-1].T
+            w0_d        = w0[::-1].T
+
+        # Single-wavenumber RT: one point per bin at the bin centre (cm^-1).
+        wn = 1.e7 / var.bins
+
+        cfg = self._cfg if self._cfg_nz == nz else self._make_cfg()
+
+        # ------------------------------------------------------------------
+        # Single batch call — disortpp runs the per-bin loop in C++ with OpenMP.
+        # Per-wavenumber overrides supply the layer optical properties and the
+        # direct-beam magnitude; everything else (μ₀, phase function, surface
+        # albedo) stays on the shared config.
+        # ------------------------------------------------------------------
+        results = self._disortpp.solve_flux_spectral(
+            cfg, wn,
+            delta_tau=delta_tau_d,
+            single_scat_albedo=w0_d,
+            direct_beam_flux=var.sflux_top,
+        )
+
+        var.prev_aflux = np.copy(var.aflux)
+        sflux   = np.empty_like(var.sflux)
+        dflux_u = np.empty_like(var.dflux_u)
+        dflux_d = np.empty_like(var.dflux_d)
+        tot_flux = np.empty((nz, nbins))
+        four_pi = 4. * np.pi
+        native  = self._native_bottom
+        inv_mu0 = 1.0 / mu0 if mu0 > 0 else 1.0
+
+        for b, r in enumerate(results):
+            mi   = np.asarray(r.mean_intensity)
+            fdir = np.asarray(r.flux_direct_beam)
+            fup  = np.asarray(r.flux_up)
+            fdn  = np.asarray(r.flux_down)
+            if not native:
+                mi, fdir, fup, fdn = mi[::-1], fdir[::-1], fup[::-1], fdn[::-1]
+
+            actinic_lev = four_pi * mi
+            tot_flux[:, b] = 0.5 * (actinic_lev[:-1] + actinic_lev[1:])
+            sflux[:, b]    = fdir * inv_mu0
+            dflux_u[:, b]  = fup
+            dflux_d[:, b]  = fdn
+
+        var.sflux   = sflux
+        var.dflux_u = dflux_u
+        var.dflux_d = dflux_d
+
+        # Energy → photon flux (photons / cm^2 / s / nm); same convention as 2-stream.
+        var.aflux = tot_flux / (hc / var.bins)
+        mask = var.aflux > vulcan_cfg.flux_atol
+        if mask.any():
+            var.aflux_change = float(np.nanmax(
+                np.abs(var.aflux - var.prev_aflux)[mask] / var.aflux[mask]
+            ))
+        else:
+            var.aflux_change = 0.0

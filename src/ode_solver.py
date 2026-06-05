@@ -9,7 +9,7 @@ from vulcan_cfg import nz
 
 from chemistry_jax import neg_achemjac, chem_jac_blocks
 from jacobian_jax import _lhs_jac_banded_kernel, _lhs_jac_banded_logy_kernel
-from radiative_transfer import TwoStreamRT
+from radiative_transfer import make_rt
 import jax.numpy as jnp
 
 compo = build_atm.compo
@@ -34,7 +34,7 @@ class ODESolver:
             
         self.fix_sp_bot_index = [species.index(sp) for sp in vulcan_cfg.use_fix_sp_bot.keys()]
         self.fix_sp_bot_mix = np.array([vulcan_cfg.use_fix_sp_bot[sp] for sp in vulcan_cfg.use_fix_sp_bot.keys()])
-        self.rt = TwoStreamRT()
+        self.rt = make_rt()
 
         # Precompute the gas-species mask used by the JAX banded Jacobian.
         # 1.0 for gas species, 0.0 for non-gas — allows ysum to be computed

@@ -49,7 +49,9 @@ f_diurnal = 0.5 # to account for the diurnal average of solar flux (i.e. 0.5 for
 scat_sp = ['N2', 'O2'] # the bulk gases that contribute to Rayleigh scattering
 T_cross_sp = ['CO2','H2O','NH3'] # warning: slower start! available atm: 'CO2','H2O','NH3', 'SH','H2S','SO2', 'S2', 'COS', 'CS2'
 
-edd = 0.5 # the Eddington coefficient 
+edd = 0.5 # the Eddington coefficient
+rt_scheme = 'two-stream' # radiative-transfer scheme: 'two-stream' (Eddington) or 'disort' (DisORT++)
+disort_nstr = 4 # number of streams used by the DisORT++ flux solver (4, 6, 8, 10, 12, 14, 16, 32, 64); 4 is sufficient for Rayleigh-dominated atmospheres
 dbin1 = 0.1  # the uniform bin width < dbin_12trans (nm)
 dbin2 = 2.   # the uniform bin width > dbin_12trans (nm)
 dbin_12trans = 240. # the wavelength switching from dbin1 to dbin2 (nm)
