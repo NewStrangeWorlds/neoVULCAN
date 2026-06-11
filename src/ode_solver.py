@@ -9,7 +9,7 @@ from phy_const import kb, Navo
 nz = cfg.atmosphere.nz
 
 from chemistry_jax import neg_achemjac, chem_jac_blocks
-from jacobian_jax import _lhs_jac_banded_kernel, _lhs_jac_banded_logy_kernel
+from jacobian_jax import _lhs_jac_banded_kernel
 from radiative_transfer import make_rt
 import jax.numpy as jnp
 
@@ -289,19 +289,6 @@ class ODESolver:
     X_FLOOR_LOG = -300.0
     X_CEIL_LOG  =  200.0
 
-    def diffdf_logy(self, x, atm):
-        """Log-space diffusion RHS: diff(exp(x), atm) / exp(x).
-
-        DORMANT INFRASTRUCTURE: paired with
-        ``jacobian_jax._lhs_jac_banded_logy_kernel`` for a log-space
-        integrator path.  Currently not on any code path — the log-space
-        Rosenbrock attempt (Tier 2.2 Phase C) was reverted after
-        discovering the chain rule cancels implicit damping of first-order
-        chemistry loss.  Kept for the next iteration of the stiffness
-        work; see plan file.
-        """
-        y = np.exp(np.clip(x, self.X_FLOOR_LOG, self.X_CEIL_LOG))
-        return self.diffdf(y, atm) / y
             
     def diffdf_vm(self, y, atm):
         """Eddy + molecular diffusion (no thermal term) + vm mean-molecular-velocity advection.
@@ -451,41 +438,6 @@ class ODESolver:
         ab_lapack[:bw] = 0.0
         ab_lapack[bw:] = ab
         return ab_lapack, bw
-
-    def lhs_jac_banded_logy(self, var, atm):
-        """Log-space banded LHS = c0*I - dg/dx where g(x) = f(exp(x))/exp(x).
-
-        DORMANT INFRASTRUCTURE: mirrors :meth:`lhs_jac_banded` but operates
-        on a log-space state ``var.x``.  Currently not on any code path —
-        see ``diffdf_logy`` for context.  Reads ``var.x`` if present,
-        otherwise falls back to ``np.log(np.maximum(var.y, atol))``.
-
-        Caller computes ``diff_logy = diffdf(exp(x), atm)/exp(x)`` once
-        (NumPy) and passes it in for the chain-rule diagonal correction.
-        """
-        from chemistry_jax import k_dict_to_array
-
-        if self._atm_jax is None:
-            self._build_atm_jax_cache(atm)
-        a = self._atm_jax
-
-        bw    = 2 * ni - 1
-        k_arr = k_dict_to_array(var.k)
-        r  = 1. + 1. / np.sqrt(2.)
-        c0 = 1. / (r * var.dt)
-
-        x = var.x if hasattr(var, 'x') else np.log(np.maximum(var.y, self.atol))
-        diff_logy = self.diffdf_logy(x, atm)
-
-        ab = _lhs_jac_banded_logy_kernel(
-            jnp.asarray(x), a['M'], jnp.asarray(k_arr),
-            jnp.float64(c0), jnp.asarray(diff_logy),
-            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['alpha'], a['Tco'],
-            a['ms'], a['g'], a['Ti'], a['Hpi'],
-            self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
-            nz=nz,
-        )
-        return np.array(ab), bw
 
     def lhs_jac_steady(self, var, atm):
         """Banded -∂F/∂y for the steady-state Newton finisher.
