@@ -159,6 +159,7 @@ class VulcanChemistry:
 
         # --- Initial chemical abundances ---
         ini_abun = build_atm.InitialAbun()
+        self._ini_abun = ini_abun
         self.data_var = ini_abun.ini_y(self.data_var, self.data_atm)
         self.data_var = ini_abun.ele_sum(self.data_var)
 
@@ -182,6 +183,7 @@ class VulcanChemistry:
         self._solver.naming_solver(self.data_para)
 
         self._initialized = True
+        self._has_run = False
 
     # ------------------------------------------------------------------
     # Per-step interface
@@ -231,23 +233,59 @@ class VulcanChemistry:
         if self._cfg.use_photo:
             self._solver.rt(self.data_var, self.data_atm)
 
-    def run_to_convergence(self):
+    def run_to_convergence(self, warm_start=False, dt_factor=1e-3, count_min=20):
         """
         Run the chemistry integration loop until VULCAN's steady-state
         convergence criterion is satisfied (or runtime/count_max is exceeded).
 
-        Starts from the current chemical state (warm start), so consecutive
-        calls will converge faster as the atmosphere approaches steady state.
+        Starts from the current chemical state, so consecutive calls converge
+        faster as the atmosphere approaches steady state.
+
+        Parameters
+        ----------
+        warm_start : bool
+            Coupled-mode restart: the composition is the steady state of a
+            slightly different atmosphere (the previous pass of an
+            atmosphere/chemistry coupling loop). Instead of restarting the time
+            step from ``dttry`` (1e-10 s by default) and taking at least
+            ``solver.count_min`` steps, the previous time step scaled by
+            ``dt_factor`` is kept (floored at ``dttry``) and the minimum step
+            count is lowered to ``count_min``. The step controller shrinks the
+            step further on its own if the change was larger than expected.
+            Ignored on the first call.
+        dt_factor : float
+            Fraction of the previous time step to restart from (warm_start only).
+        count_min : int
+            Minimum number of steps before convergence may be declared
+            (warm_start only).
+
+        Notes
+        -----
+        Every call resets the integration clock: VULCAN's convergence criterion
+        (``longdy``) measures the relative change over the last ``st_factor``
+        fraction of the *current* run, so it needs a fresh history.
         """
         store = self._store
+        cfg_solver = self._cfg.solver
 
-        # Fresh counters and timing — but keep the current chemistry in data_var.y
+        warm = warm_start and self._has_run
+        dt_start = max(cfg_solver.dttry, self.data_var.dt * dt_factor) if warm else cfg_solver.dttry
+
+        # Fresh counters and timing — but keep the current chemistry in data_var.y.
+        # The solver's dispatch name lives on the parameter object, so it must be re-stamped
+        # (previously it was stamped only on the object created by initialize(), and every
+        # run_to_convergence() call dispatched on an empty name).
         self.data_para = store.Parameters()
         self.data_para.start_time = time.time()
+        self._solver.naming_solver(self.data_para)
 
         # Reset integration-time variables so convergence checks work correctly
         self.data_var.t = 0.
+<<<<<<< Updated upstream
         self.data_var.dt = self._cfg.dttry
+=======
+        self.data_var.dt = dt_start
+>>>>>>> Stashed changes
         self.data_var.y_time = []
         self.data_var.t_time = []
         self.data_var.atom_loss_time = []
@@ -264,7 +302,62 @@ class VulcanChemistry:
         if self._cfg.use_photo:
             self._integ.update_photo_frq = self._cfg.ini_update_photo_frq
 
-        self._integ(self.data_var, self.data_atm, self.data_para, self._make_atm)
+        saved_count_min = cfg_solver.count_min
+        if warm:
+            cfg_solver.count_min = count_min
+        try:
+            self._integ(self.data_var, self.data_atm, self.data_para, self._make_atm)
+        finally:
+            cfg_solver.count_min = saved_count_min
+        self._has_run = True
+
+    def set_composition(self, species, mixing_ratios, renormalize=True):
+        """
+        Overwrite the current mixing ratios of the given species.
+
+        Used to seed the kinetics from an atmosphere model's composition (an
+        equilibrium or quench-approximation profile) instead of neoVULCAN's own
+        FastChem initial state, or to hand back a relaxed composition in a
+        coupling loop.
+
+        Parameters
+        ----------
+        species : list of str
+            Species names as in ``self.species``; unknown names are ignored.
+        mixing_ratios : array_like of shape (nz, len(species))
+            Volume mixing ratios on neoVULCAN's own grid, bottom to top.
+        renormalize : bool
+            Rescale every level so the mixing ratios sum to one afterwards
+            (species not in ``species`` keep their current values).
+
+        Notes
+        -----
+        The elemental budget the integration conserves is re-referenced to the
+        new composition, so atom-loss diagnostics (which also drive the adaptive
+        tolerance) measure drift from this seed rather than from the original
+        FastChem state.
+        """
+        table = np.asarray(mixing_ratios, dtype=float)
+        ymix = self.data_var.ymix
+        if table.shape != (ymix.shape[0], len(species)):
+            raise ValueError(
+                f'mixing_ratios must have shape ({ymix.shape[0]}, {len(species)}), got {table.shape}')
+
+        known = [(k, self.species.index(sp)) for k, sp in enumerate(species) if sp in self.species]
+        ignored = [sp for sp in species if sp not in self.species]
+        if not known:
+            raise ValueError('none of the supplied species is in the network')
+
+        for k, j in known:
+            ymix[:, j] = np.maximum(table[:, k], 0.0)
+
+        if renormalize:
+            ymix /= ymix.sum(axis=1)[:, np.newaxis]
+
+        self.data_var.ymix = ymix
+        self.data_var.y = self.data_atm.n_0[:, np.newaxis] * ymix
+        self.data_var = self._ini_abun.ele_sum(self.data_var)
+        return ignored
 
     # ------------------------------------------------------------------
     # Result accessors
