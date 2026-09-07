@@ -17,6 +17,33 @@ compo = build_atm.compo
 compo_row = build_atm.compo_row
 species = chem_funs.spec_list
 
+def zero_rows_banded(ab, bw, rows, diag_val):
+    """Turn rows ``rows`` of a matrix held in LAPACK band storage into
+    ``diag_val`` times unit rows, in place.
+
+    ``ab`` has ``3*bw+1`` rows with the main diagonal at row ``2*bw``, i.e.
+    ``A[i, j]`` lives at ``ab[2*bw + i - j, j]`` (the layout produced by
+    :meth:`ODESolver.lhs_jac_banded` and consumed by ``dgbtrf``).  A row of
+    ``A`` is therefore an anti-diagonal of ``ab``; ``ab[:, i] = 0`` would
+    zero the *column* ``i`` of ``A`` instead.
+
+    Used to freeze unknowns (fixed condensable species, electrons): with the
+    matching right-hand-side entries set to zero the solve returns a zero
+    increment for those unknowns while the rest of the system keeps its
+    full Jacobian coupling to them.
+    """
+    rows = np.asarray(rows, dtype=np.intp)
+    if rows.size == 0:
+        return
+    n = ab.shape[1]
+    off = np.arange(-bw, bw + 1)                        # j - i
+    j = rows[:, None] + off[None, :]
+    r = np.broadcast_to(2 * bw - off[None, :], j.shape)  # 2*bw + i - j
+    inside = (j >= 0) & (j < n)
+    ab[r[inside], j[inside]] = 0.
+    ab[2 * bw, rows] = diag_val
+
+
 class ODESolver:
 
     # Order of the embedded error estimator used by the adaptive step-size
@@ -158,7 +185,8 @@ class ODESolver:
         """Upwind advection coefficients for velocity field v.
 
         v may be cell-centered ((nz,) or (nz, ni)) or interface-defined
-        ((nz-1,) or (nz-1, ni) — e.g. the settling velocity ``atm.vs``).
+        ((nz-1,) or (nz-1, ni) — e.g. the settling velocity ``atm.vs`` and
+        the molecular-diffusion drift velocity ``atm.vm``).
         Returns (dA, dB, dC) shaped on the cell grid ((nz,) or (nz, ni)) so
         they can be added directly to the caller's tridiagonal arrays.
         """
@@ -291,7 +319,8 @@ class ODESolver:
 
             
     def diffdf_vm(self, y, atm):
-        """Eddy + molecular diffusion (no thermal term) + vm mean-molecular-velocity advection.
+        """Eddy + molecular diffusion (no thermal term) + upwind advection with the
+        molecular-diffusion drift velocity vm (interface-defined, (nz-1, ni)).
 
         Zero-flux boundary conditions, non-uniform grid.
         """
@@ -362,7 +391,7 @@ class ODESolver:
             # so the mol-diff thermal bracket must be turned off.
             thermal_flag = 0.0
         else:
-            vm_eff = np.zeros((nz, ni))
+            vm_eff = np.zeros((nz - 1, ni))
             thermal_flag = 1.0
 
         # settling_vm only: zero the vm boundary contribution at j=0

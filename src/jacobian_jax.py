@@ -49,10 +49,10 @@ def _lhs_jac_banded_kernel(y, M, k, c0,
     vz        : (nz-1,)         vertical velocity at half-levels
     vs        : (nz-1, ni)      settling velocity at half-levels (per species);
                                 pass zeros if settling disabled
-    vm        : (nz, ni)        mean-molecular-velocity advection at cell centres
-                                (per species); pass zeros if not used.  Caller is
-                                responsible for zeroing vm[0] if vm should be
-                                absent at the bottom (the settling_vm variant).
+    vm        : (nz-1, ni)      molecular-diffusion drift velocity at half-levels
+                                (per species, same layout as vs); pass zeros if
+                                not used.  Use vm_bot_flag to drop the bottom
+                                contribution (the settling_vm variant).
     alpha     : (ni,)           thermal diffusion factor
     Tco       : (nz,)           temperature at cell centres
     ms        : (ni,)           species molecular weight
@@ -107,8 +107,8 @@ def _lhs_jac_banded_kernel(y, M, k, c0,
     vz_neg = jnp.minimum(vz, 0.0)                 # (vz<0)*vz       (nz-1,)
     vs_pos = jnp.maximum(vs, 0.0)                 # (nz-1, ni)
     vs_neg = jnp.minimum(vs, 0.0)                 # (nz-1, ni)
-    vm_pos = jnp.maximum(vm, 0.0)                 # (nz, ni)
-    vm_neg = jnp.minimum(vm, 0.0)                 # (nz, ni)
+    vm_pos = jnp.maximum(vm, 0.0)                 # (nz-1, ni)
+    vm_neg = jnp.minimum(vm, 0.0)                 # (nz-1, ni)
 
     diag_diff  = jnp.zeros((nz, ni))
     upper_diff = jnp.zeros((nz, ni))
@@ -171,8 +171,8 @@ def _lhs_jac_banded_kernel(y, M, k, c0,
     vs_u_mid = -vs_neg[j] / dz_ave[:, None]
     vs_l_mid =  vs_pos[j - 1] / dz_ave[:, None]
 
-    # vm (cell-centred mean-molecular-velocity advection, per-species) upwind
-    # contributions; indexed at cell centres (vm has shape (nz, ni)).
+    # vm (molecular-diffusion drift velocity, interface-defined, per-species)
+    # upwind contributions; indexed exactly like vs (shape (nz-1, ni)).
     vm_d_mid = -(vm_pos[j] - vm_neg[j - 1]) / dz_ave[:, None]
     vm_u_mid = -vm_neg[j] / dz_ave[:, None]
     vm_l_mid =  vm_pos[j - 1] / dz_ave[:, None]
@@ -222,8 +222,7 @@ def _lhs_jac_banded_kernel(y, M, k, c0,
     topN_mol  = (-1. / dzi[nz - 2] * (Dzz[nz - 2] / dzi[nz - 2])
                  * (ysum[nz - 1] + ysum[nz - 2]) / (2. * ysum[nz - 1])
                  - 1. / dzi[-1] * Dzz[-1] / 2. * mol_bcN)                  # (ni,)
-    # vs[-1] = vs[nz-2] (top interface, below cell nz-1).
-    # vm[-1] = vm[nz-1] (top cell value).
+    # vs[-1] = vs[nz-2] and vm[-1] = vm[nz-2] (top interface, below cell nz-1).
     topN_vs = vs_neg[-1] / dzi[-1]                                         # (ni,)
     topN_vm = vm_neg[-1] / dzi[-1]                                         # (ni,)
     diag_diff = diag_diff.at[nz - 1].add(-(topN_eddy + topN_mol + topN_vs + topN_vm))

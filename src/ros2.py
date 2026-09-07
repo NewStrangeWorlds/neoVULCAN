@@ -10,7 +10,7 @@ nz = cfg.atmosphere.nz
 
 from chemistry_jax import chemdf
 
-from ode_solver import ODESolver
+from ode_solver import ODESolver, zero_rows_banded
 
 compo = build_atm.compo
 compo_row = build_atm.compo_row
@@ -94,12 +94,10 @@ class Ros2(ODESolver):
                         pfix_indx = atm.conden_min_lev[sp]
                         atm.fix_sp_indx[sp] = np.arange(species.index(sp), species.index(sp) + ni*(pfix_indx), ni)
                     df[atm.fix_sp_indx[sp]] = 0
-                    lhs_b[:, atm.fix_sp_indx[sp]] = 0.
-                    lhs_b[2*bw, atm.fix_sp_indx[sp]] = 1./(r*h)
+                    zero_rows_banded(lhs_b, bw, atm.fix_sp_indx[sp], 1./(r*h))
             if cfg.photochemistry.use_ion:
                 df[atm.fix_e_indx] = 0
-                lhs_b[:, atm.fix_e_indx] = 0.
-                lhs_b[2*bw, atm.fix_e_indx] = 1./(r*h)
+                zero_rows_banded(lhs_b, bw, atm.fix_e_indx, 1./(r*h))
         else:
             lhs = jac_fn(var, atm)
             if cfg.condensation.use_condense and para.fix_species_start:
@@ -181,12 +179,13 @@ class Ros2(ODESolver):
                     delta[:, species.index(sp)] = 0
 
         if cfg.solver.use_print_delta and para.count % cfg.solver.print_prog_num == 0:
-            max_indx = np.nanargmax(delta/sol, axis=1)
-            max_lev_indx = np.nanargmax(delta/sol)
-            print('Largest delta (truncation error) from nz = ' + str(int(max_lev_indx/ni)))
-            print(np.array(species)[max_indx])
-            print('Largest delta (truncation error) from ' + species[max_indx%ni]
-                  + " at nz = " + str(int(max_indx/ni)))
+            with np.errstate(divide='ignore', invalid='ignore'):
+                ratio = np.where(sol > 0, delta / sol, 0.)
+            top = np.argsort(-ratio, axis=None)[:5]
+            print('Largest delta (truncation error) contributors (species, nz, delta/y):')
+            for flat in top:
+                lev, isp = divmod(int(flat), ni)
+                print(f'    {species[isp]:10s} nz = {lev:3d}   {ratio.flat[flat]:.2e}   y = {sol.flat[flat]:.2e}')
 
         delta = np.amax(delta[sol > 0] / sol[sol > 0])
 

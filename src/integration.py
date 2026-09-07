@@ -82,6 +82,10 @@ class Integration:
                         print("rtol changed to " + str(cfg.solver.rtol) + " after fixing the condensaed species.")
                         atm.vs *= 0
                         print("Turn off the settling velocity of all species")
+                        # The JAX Jacobian kernel caches a copy of atm.vs; drop it so the
+                        # next step's LHS matches the (now settling-free) RHS.
+                        if hasattr(self.odesolver, 'invalidate_atm_cache'):
+                            self.odesolver.invalidate_atm_cache()
 
                         var.fix_y = {}
                         for sp in cfg.condensation.fix_species:
@@ -207,12 +211,15 @@ class Integration:
         dzi = 0.5*(atm.dz + np.roll(atm.dz,1))
         atm.dzi = dzi[1:]
         
-        # for the molecular diffsuion
-        if cfg.atmosphere.use_moldiff:
-            Ti = 0.5*(Tco + np.roll(Tco,-1))
-            atm.Ti = Ti[:-1]
-            Hpi = 0.5*(Hp + np.roll(Hp,-1))
-            atm.Hpi = Hpi[:-1]
+        # interface temperature and scale height (always defined, see build_atm.Atm.f_pico)
+        Ti = 0.5*(Tco + np.roll(Tco,-1))
+        atm.Ti = Ti[:-1]
+        Hpi = 0.5*(Hp + np.roll(Hp,-1))
+        atm.Hpi = Hpi[:-1]
+        
+        # the drift velocity of molecular diffusion depends on g, Hpi and dzi
+        if cfg.atmosphere.use_moldiff and cfg.atmosphere.use_vm_mol:
+            make_atm.mol_diff_vm(atm)
         
         return atm
     

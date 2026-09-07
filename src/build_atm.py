@@ -551,12 +551,12 @@ class Atm(object):
         dzi = dzi[1:]
         # for the j grid, dzi[j] from the grid above and dz[j-1] from the grid below
         
-        # for the molecular diffsuion
-        if cfg.atmosphere.use_moldiff:
-            Ti = 0.5*(Tco + np.roll(Tco,-1))
-            data_atm.Ti = Ti[:-1]
-            Hpi = 0.5*(Hp + np.roll(Hp,-1))
-            data_atm.Hpi = Hpi[:-1]
+        # interface temperature and scale height (used by the molecular diffusion terms;
+        # always defined because the Jacobian kernel takes them as inputs regardless of use_moldiff)
+        Ti = 0.5*(Tco + np.roll(Tco,-1))
+        data_atm.Ti = Ti[:-1]
+        Hpi = 0.5*(Hp + np.roll(Hp,-1))
+        data_atm.Hpi = Hpi[:-1]
             
         # updating and storing dz and dzi
         #data_atm.dz = dz
@@ -707,7 +707,6 @@ class Atm(object):
         for i in range(len(species)):
             # input should be float or in the form of nz-long 1D array
             atm.Dzz[:,i] = Dzz_gen(Tco_i, n0_i, self.mol_mass(species[i]))
-            atm.Dzz_cen[:,i] = Dzz_gen(Tco, atm.n_0, self.mol_mass(species[i]))
             
             # constructing the molecular weight for every species
             # this is required even without molecular weight
@@ -716,16 +715,33 @@ class Atm(object):
         # setting the molecuar diffusion of the non-gaseous species to zero
         for sp in [_ for _ in cfg.condensation.non_gas_sp if _ in species]: atm.Dzz[:,species.index(sp)] = 0
         
-        # contruct the advective component of molcular diffsion # added 2025
-        delta_T = np.roll(Tco,-1)-Tco
-        delta_T[0] = delta_T[1]
+        # temperature difference across each interface, Tco[j+1] - Tco[j], shape (nz-1,)
+        atm.delta_Ti = (np.roll(Tco,-1) - Tco)[:-1]
         
+        # the advective component of molecular diffusion (upwind scheme, use_vm_mol)
         if cfg.atmosphere.use_vm_mol:
-            atm.vm = - atm.Dzz_cen * ( atm.ms[np.newaxis,:]*atm.g[:,np.newaxis]/(Navo*kb*Tco[:,np.newaxis]) - 1./atm.Hp[:,np.newaxis] +  atm.alpha/Tco[:,np.newaxis]*(delta_T[:,np.newaxis])/atm.dz[:,np.newaxis]  )
-            if cfg.condensation.use_condense:
-                non_gas_indices = [species.index(sp) for sp in cfg.condensation.non_gas_sp]
-                atm.vm[:,non_gas_indices] = 0
-        # contruct the advective component of molcular diffsion
+            self.mol_diff_vm(atm)
+    
+    def mol_diff_vm(self, atm):
+        '''
+        Constructing vm, the advective (drift) velocity of molecular diffusion,
+        defined on the nz-1 interfaces like Dzz:
+            vm = -Dzz * ( 1/H_i - 1/H + alpha/T * dT/dz )
+        with H_i the scale height of species i.  Used together with the upwind
+        scheme when use_vm_mol = True; then the thermal/gravitational drift term
+        is removed from the central-difference molecular diffusion.
+        Called from mol_diff() and again whenever mu, dz and g are updated
+        (Integration.update_mu_dz).
+        '''
+        Tco = atm.Tco
+        # 1/H_i of species i at the cell centres, shape (nz, ni)
+        inv_Hs = atm.ms[np.newaxis,:]*atm.g[:,np.newaxis]/(Navo*kb*Tco[:,np.newaxis])
+        # averaging H_i over the two adjacent cells, then converting back to 1/H_i at the interface
+        inv_Hs_i = 1./( 0.5*(1./inv_Hs[:-1] + 1./inv_Hs[1:]) )
+        
+        atm.vm = - atm.Dzz * ( inv_Hs_i - 1./atm.Hpi[:,np.newaxis] \
+                 + atm.alpha[np.newaxis,:]/atm.Ti[:,np.newaxis] * atm.delta_Ti[:,np.newaxis]/atm.dzi[:,np.newaxis] )
+        # Dzz of the non-gaseous species is zero, hence vm is zero for them as well
                 
     
     def BC_flux(self, atm):

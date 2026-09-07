@@ -102,9 +102,9 @@ class AtmData(object):
         self.Hp = np.empty(nz) # the scale height
         self.mu = np.empty(nz) # mean molecular weight
         self.ms = np.empty(ni) # molecular weight for every species
-        self.Dzz = np.zeros((nz-1,ni)) # molecular diffusion (nz,ni)
-        self.Dzz_cen = np.zeros((nz,ni)) # molecular diffusion (nz,ni)
-        self.vm = np.zeros((nz,ni)) # molecular diffusion (nz,ni)
+        self.Dzz = np.zeros((nz-1,ni)) # molecular diffusion at the interfaces (nz-1,ni)
+        self.vm = np.zeros((nz-1,ni)) # advective (drift) velocity of molecular diffusion at the interfaces (nz-1,ni)
+        self.delta_Ti = np.zeros(nz-1) # temperature difference across the interfaces, Tco[j+1]-Tco[j]
         self.vs = np.zeros((nz-1,ni)) # the settling velocity
         self.alpha = np.zeros(ni) # thermal diffusion factor = -0.25 for every species except for H and H2 (defined in mol_diff() in build_atm.py)
         self.gs = cfg.atmosphere.gs # the gravitational acceleration at the surface or at 1 bar

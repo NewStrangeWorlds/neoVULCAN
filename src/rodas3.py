@@ -56,7 +56,7 @@ nz = cfg.atmosphere.nz
 
 from chemistry_jax import chemdf
 
-from ode_solver import ODESolver
+from ode_solver import ODESolver, zero_rows_banded
 
 compo = build_atm.compo
 compo_row = build_atm.compo_row
@@ -124,6 +124,7 @@ class Rodas3(ODESolver):
 
         # --- LHS (shared across all 4 stages) ---
         lhs_b, bw = jac_fn(var, atm, c0=c0)
+        # lhs_b is in LAPACK band storage (3*bw+1 rows; main diagonal at row 2*bw).
 
         # Boundary/condensation/ion handling — same pattern as Ros2.
         if cfg.condensation.use_condense and para.fix_species_start:
@@ -133,22 +134,17 @@ class Rodas3(ODESolver):
                     atm.fix_sp_indx[sp] = np.arange(
                         species.index(sp),
                         species.index(sp) + ni * pfix_indx, ni)
-                lhs_b[:, atm.fix_sp_indx[sp]] = 0.
-                lhs_b[bw, atm.fix_sp_indx[sp]] = c0
+                zero_rows_banded(lhs_b, bw, atm.fix_sp_indx[sp], c0)
         if cfg.photochemistry.use_ion:
-            lhs_b[:, atm.fix_e_indx] = 0.
-            lhs_b[bw, atm.fix_e_indx] = c0
+            zero_rows_banded(lhs_b, bw, atm.fix_e_indx, c0)
 
         # Factor the banded LHS ONCE (LAPACK dgbtrf) so the 4 stages share
         # one LU factorisation.  scipy.linalg.solve_banded recomputes the
         # LU on every call, which would be ~3× more work for a 4-stage
-        # method.  Expand to LAPACK's (2*kl+ku+1, n) layout (extra rows
-        # for fill-in during pivoting).
+        # method.  lhs_jac_banded already returns the LAPACK
+        # (2*kl+ku+1, n) layout (extra rows for fill-in during pivoting).
         kl = ku = bw
-        n_total = lhs_b.shape[1]
-        ab_lapack = np.zeros((2 * kl + ku + 1, n_total))
-        ab_lapack[kl:, :] = lhs_b
-        lu, ipiv, info = dgbtrf(ab_lapack, kl, ku, overwrite_ab=1)
+        lu, ipiv, info = dgbtrf(lhs_b, kl, ku, overwrite_ab=1)
         if info != 0:
             raise RuntimeError(
                 f"Rodas3 banded LU factorisation failed (LAPACK dgbtrf "
