@@ -1,15 +1,16 @@
 import numpy as np
 
-import vulcan_cfg
+from neovulcan_runtime import get_cfg
+cfg = get_cfg()
 import build_atm
 import chemistry_jax as chem_funs
 from chemistry_jax import ni
 from phy_const import kb, Navo
-from vulcan_cfg import nz
+nz = cfg.atmosphere.nz
 
 from chemistry_jax import neg_achemjac, chem_jac_blocks
-from jacobian_jax import _lhs_jac_banded_kernel, _lhs_jac_banded_logy_kernel
-from radiative_transfer import TwoStreamRT
+from jacobian_jax import _lhs_jac_banded_kernel
+from radiative_transfer import make_rt
 import jax.numpy as jnp
 
 compo = build_atm.compo
@@ -24,29 +25,29 @@ class ODESolver:
     error_order = 2
 
     def __init__(self):
-        self.mtol = vulcan_cfg.mtol
-        self.atol = vulcan_cfg.atol
-        self.non_gas_sp = vulcan_cfg.non_gas_sp
+        self.mtol = cfg.solver.mtol
+        self.atol = cfg.solver.atol
+        self.non_gas_sp = cfg.condensation.non_gas_sp
 
-        if vulcan_cfg.use_condense:
+        if cfg.condensation.use_condense:
             self.non_gas_sp_index = [species.index(sp) for sp in self.non_gas_sp]
-            self.condense_sp_index = [species.index(sp) for sp in vulcan_cfg.condense_sp]
+            self.condense_sp_index = [species.index(sp) for sp in cfg.condensation.condense_sp]
             
-        self.fix_sp_bot_index = [species.index(sp) for sp in vulcan_cfg.use_fix_sp_bot.keys()]
-        self.fix_sp_bot_mix = np.array([vulcan_cfg.use_fix_sp_bot[sp] for sp in vulcan_cfg.use_fix_sp_bot.keys()])
-        self.rt = TwoStreamRT()
+        self.fix_sp_bot_index = [species.index(sp) for sp in cfg.boundary_conditions.use_fix_sp_bot.keys()]
+        self.fix_sp_bot_mix = np.array([cfg.boundary_conditions.use_fix_sp_bot[sp] for sp in cfg.boundary_conditions.use_fix_sp_bot.keys()])
+        self.rt = make_rt()
 
         # Precompute the gas-species mask used by the JAX banded Jacobian.
         # 1.0 for gas species, 0.0 for non-gas — allows ysum to be computed
         # as (y * mask).sum() with no conditional indexing inside the JIT.
         gas_mask = np.ones(ni)
-        if vulcan_cfg.use_condense:
+        if cfg.condensation.use_condense:
             gas_mask[:] = 0.0
             # gas_indx is built by build_atm; capture it once per solver instance
             gas_indx = [i for i in range(ni) if species[i] not in self.non_gas_sp]
             gas_mask[gas_indx] = 1.0
         self._gas_mask_jax = jnp.asarray(gas_mask)
-        self._use_botflux_flag = jnp.float64(1.0 if vulcan_cfg.use_botflux else 0.0)
+        self._use_botflux_flag = jnp.float64(1.0 if cfg.boundary_conditions.use_botflux else 0.0)
 
         # Cache of JAX-converted atmospheric arrays.  Built lazily on first
         # use and invalidated by Integration.update_mu_dz via
@@ -58,7 +59,7 @@ class ODESolver:
     # -----------------------------------------------------------------------
 
     def _ysum(self, y, atm):
-        if vulcan_cfg.non_gas_sp:
+        if cfg.condensation.non_gas_sp:
             return np.sum(y[:, atm.gas_indx], axis=1)
         return np.sum(y, axis=1)
 
@@ -214,9 +215,9 @@ class ODESolver:
 
     def _apply_flux_bcs(self, diff, y, atm):
         """Add top/bottom flux boundary contributions in-place."""
-        if vulcan_cfg.use_topflux:
+        if cfg.boundary_conditions.use_topflux:
             diff[-1] += atm.top_flux / atm.dzi[-1]
-        if vulcan_cfg.use_botflux:
+        if cfg.boundary_conditions.use_botflux:
             diff[0] += (atm.bot_flux - y[0]*atm.bot_vdep) / atm.dzi[0]
         return diff
 
@@ -249,7 +250,7 @@ class ODESolver:
     def _diff_esc_to_jac(self, dfdy, y, atm):
         """Apply diffusion-limited escape correction to top-layer diagonal."""
         diff_lim = np.zeros(ni)
-        for sp in vulcan_cfg.diff_esc:
+        for sp in cfg.boundary_conditions.diff_esc:
             i = species.index(sp)
             if y[-1, i] > 0:
                 diff_lim[i] += atm.top_flux[i] / y[-1, i]
@@ -288,19 +289,6 @@ class ODESolver:
     X_FLOOR_LOG = -300.0
     X_CEIL_LOG  =  200.0
 
-    def diffdf_logy(self, x, atm):
-        """Log-space diffusion RHS: diff(exp(x), atm) / exp(x).
-
-        DORMANT INFRASTRUCTURE: paired with
-        ``jacobian_jax._lhs_jac_banded_logy_kernel`` for a log-space
-        integrator path.  Currently not on any code path — the log-space
-        Rosenbrock attempt (Tier 2.2 Phase C) was reverted after
-        discovering the chain rule cancels implicit damping of first-order
-        chemistry loss.  Kept for the next iteration of the stiffness
-        work; see plan file.
-        """
-        y = np.exp(np.clip(x, self.X_FLOOR_LOG, self.X_CEIL_LOG))
-        return self.diffdf(y, atm) / y
             
     def diffdf_vm(self, y, atm):
         """Eddy + molecular diffusion (no thermal term) + vm mean-molecular-velocity advection.
@@ -347,14 +335,47 @@ class ODESolver:
         
         
     def _build_atm_jax_cache(self, atm):
-        """Convert atmospheric arrays needed by the JAX Jacobian to JAX once."""
-        bot_vdep = atm.bot_vdep if vulcan_cfg.use_botflux else np.zeros(ni)
+        """Convert atmospheric arrays needed by the JAX Jacobian to JAX once.
+
+        Also pre-computes the variant inputs (vs, vm, Dzz_eff, thermal_flag,
+        vm_bot_flag) based on the cfg flags so the per-step call site is
+        uniform regardless of which mol-diff/settling/vm variant is active.
+        """
+        bot_vdep = atm.bot_vdep if cfg.boundary_conditions.use_botflux else np.zeros(ni)
+
+        # Variant-dependent inputs.  See `_lhs_jac_banded_kernel` docstring for
+        # the conventions encoded here.
+        if cfg.atmosphere.use_moldiff:
+            Dzz_eff = atm.Dzz
+        else:
+            Dzz_eff = np.zeros_like(atm.Dzz)
+
+        if cfg.condensation.use_settling:
+            vs_eff = atm.vs
+        else:
+            vs_eff = np.zeros((nz - 1, ni))
+
+        use_vm_mol = cfg.atmosphere.use_vm_mol
+        if use_vm_mol:
+            vm_eff = atm.vm
+            # In the vm variants the thermal drift is encoded in vm itself,
+            # so the mol-diff thermal bracket must be turned off.
+            thermal_flag = 0.0
+        else:
+            vm_eff = np.zeros((nz, ni))
+            thermal_flag = 1.0
+
+        # settling_vm only: zero the vm boundary contribution at j=0
+        vm_bot_flag = 0.0 if (use_vm_mol and cfg.condensation.use_settling) else 1.0
+
         self._atm_jax = {
             'M':        jnp.asarray(atm.M),
             'dzi':      jnp.asarray(atm.dzi),
             'Kzz':      jnp.asarray(atm.Kzz),
-            'Dzz':      jnp.asarray(atm.Dzz),
+            'Dzz':      jnp.asarray(Dzz_eff),
             'vz':       jnp.asarray(atm.vz),
+            'vs':       jnp.asarray(vs_eff),
+            'vm':       jnp.asarray(vm_eff),
             'alpha':    jnp.asarray(atm.alpha),
             'Tco':      jnp.asarray(atm.Tco),
             'ms':       jnp.asarray(atm.ms),
@@ -362,6 +383,8 @@ class ODESolver:
             'Ti':       jnp.asarray(atm.Ti),
             'Hpi':      jnp.asarray(atm.Hpi),
             'bot_vdep': jnp.asarray(bot_vdep),
+            'thermal_flag': jnp.float64(thermal_flag),
+            'vm_bot_flag':  jnp.float64(vm_bot_flag),
         }
 
     def invalidate_atm_cache(self):
@@ -369,21 +392,22 @@ class ODESolver:
         self._atm_jax = None
 
     def lhs_jac_banded(self, var, atm, c0=None):
-        """Build LHS = c0*I - dfdy directly in scipy banded format.
+        """Build LHS = c0*I - dfdy and return it in **LAPACK band storage**
+        (shape ``(3*bw+1, ni*nz)``, ready to hand to ``dgbtrf`` in place).
 
-        Delegates the full assembly (chemistry blocks + eddy + molecular
-        diffusion + boundary conditions) to a JIT-compiled JAX kernel
-        ``_lhs_jac_banded_kernel`` to avoid per-step Python overhead.
-        Returns (ab, bw) ready for scipy.linalg.solve_banded.
+        The kernel emits the matrix in the compact ``(2*bw+1, ni*nz)`` form
+        used by ``scipy.linalg.solve_banded``; we materialise it once into
+        the LAPACK layout here so the caller doesn't have to re-allocate and
+        re-copy on every step.  Top ``bw`` rows are zero workspace required
+        by ``dgbtrf``; the band data occupies rows ``bw`` through ``3*bw``,
+        with the main diagonal at row ``2*bw``.
+
+        Returns ``(ab_lapack, bw)``.
 
         ``c0`` is the diagonal coefficient of the W-method LHS.  If not
         provided, defaults to Ros2's ``1/(r*h)`` with r = 1 + 1/√2.
         Higher-order Rosenbrock methods (e.g. Rodas3) pass their own
         ``c0 = 1/(γ*h)`` consistent with the method's γ.
-
-        Banded mapping:
-          ab[bw + (i-j), j] = dense[i, j]   (scipy convention)
-        where rows are layer-major: index iz*ni+sp.
         """
         from chemistry_jax import k_dict_to_array
 
@@ -400,47 +424,20 @@ class ODESolver:
         ab = _lhs_jac_banded_kernel(
             jnp.asarray(var.y), a['M'], jnp.asarray(k_arr),
             jnp.float64(c0),
-            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['alpha'], a['Tco'],
+            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['vs'], a['vm'],
+            a['alpha'], a['Tco'],
             a['ms'], a['g'], a['Ti'], a['Hpi'],
-            self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
+            self._gas_mask_jax, a['bot_vdep'],
+            self._use_botflux_flag, a['thermal_flag'], a['vm_bot_flag'],
             nz=nz,
         )
-        return np.array(ab), bw
-
-    def lhs_jac_banded_logy(self, var, atm):
-        """Log-space banded LHS = c0*I - dg/dx where g(x) = f(exp(x))/exp(x).
-
-        DORMANT INFRASTRUCTURE: mirrors :meth:`lhs_jac_banded` but operates
-        on a log-space state ``var.x``.  Currently not on any code path —
-        see ``diffdf_logy`` for context.  Reads ``var.x`` if present,
-        otherwise falls back to ``np.log(np.maximum(var.y, atol))``.
-
-        Caller computes ``diff_logy = diffdf(exp(x), atm)/exp(x)`` once
-        (NumPy) and passes it in for the chain-rule diagonal correction.
-        """
-        from chemistry_jax import k_dict_to_array
-
-        if self._atm_jax is None:
-            self._build_atm_jax_cache(atm)
-        a = self._atm_jax
-
-        bw    = 2 * ni - 1
-        k_arr = k_dict_to_array(var.k)
-        r  = 1. + 1. / np.sqrt(2.)
-        c0 = 1. / (r * var.dt)
-
-        x = var.x if hasattr(var, 'x') else np.log(np.maximum(var.y, self.atol))
-        diff_logy = self.diffdf_logy(x, atm)
-
-        ab = _lhs_jac_banded_logy_kernel(
-            jnp.asarray(x), a['M'], jnp.asarray(k_arr),
-            jnp.float64(c0), jnp.asarray(diff_logy),
-            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['alpha'], a['Tco'],
-            a['ms'], a['g'], a['Ti'], a['Hpi'],
-            self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
-            nz=nz,
-        )
-        return np.array(ab), bw
+        # Materialise into LAPACK layout in one shot: avoids the previous
+        # double-copy (JAX→writable numpy, then numpy→ab_lapack inside solver).
+        N = ni * nz
+        ab_lapack = np.empty((3 * bw + 1, N))
+        ab_lapack[:bw] = 0.0
+        ab_lapack[bw:] = ab
+        return ab_lapack, bw
 
     def lhs_jac_steady(self, var, atm):
         """Banded -∂F/∂y for the steady-state Newton finisher.
@@ -459,9 +456,11 @@ class ODESolver:
         ab = _lhs_jac_banded_kernel(
             jnp.asarray(var.y), a['M'], jnp.asarray(k_arr),
             jnp.float64(0.0),
-            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['alpha'], a['Tco'],
+            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['vs'], a['vm'],
+            a['alpha'], a['Tco'],
             a['ms'], a['g'], a['Ti'], a['Hpi'],
-            self._gas_mask_jax, a['bot_vdep'], self._use_botflux_flag,
+            self._gas_mask_jax, a['bot_vdep'],
+            self._use_botflux_flag, a['thermal_flag'], a['vm_bot_flag'],
             nz=nz,
         )
         return np.array(ab), bw
@@ -480,19 +479,19 @@ class ODESolver:
         """
         import scipy.linalg
 
-        if (vulcan_cfg.use_settling or vulcan_cfg.use_vm_mol
-                or vulcan_cfg.use_ion
-                or (vulcan_cfg.use_condense and getattr(vulcan_cfg, 'fix_species', None))):
+        if (cfg.condensation.use_settling or cfg.atmosphere.use_vm_mol
+                or cfg.photochemistry.use_ion
+                or (cfg.condensation.use_condense and cfg.condensation.fix_species)):
             return var, False
 
         chemdf = chem_funs.chemdf
         diffdf = self.diffdf
 
-        max_iter   = getattr(vulcan_cfg, 'newton_max_iter', 20)
-        tol        = getattr(vulcan_cfg, 'newton_res_tol',  1e-6)
-        alpha_min  = getattr(vulcan_cfg, 'newton_alpha_min', 1e-3)
+        max_iter   = cfg.solver.newton_max_iter
+        tol        = cfg.solver.newton_res_tol
+        alpha_min  = cfg.solver.newton_alpha_min
 
-        mtol_conv = vulcan_cfg.mtol_conv
+        mtol_conv = cfg.solver.mtol_conv
 
         def scaled_res(y_arr, F_arr):
             """Scaled max-norm residual, mirroring the masking used by
@@ -514,11 +513,11 @@ class ODESolver:
 
         for k_iter in range(max_iter):
             if res < tol:
-                if vulcan_cfg.use_print_prog:
+                if cfg.solver.use_print_prog:
                     print(f'  Newton converged in {k_iter} iterations '
                           f'(scaled res {res0:.2e} → {res:.2e})')
                 var.y = y
-                if vulcan_cfg.non_gas_sp:
+                if cfg.condensation.non_gas_sp:
                     var.ymix = var.y / np.sum(var.y[:, atm.gas_indx], axis=1)[:, np.newaxis]
                 else:
                     var.ymix = var.y / np.sum(var.y, axis=1)[:, np.newaxis]
@@ -530,7 +529,7 @@ class ODESolver:
             try:
                 dy_flat = scipy.linalg.solve_banded((bw, bw), ab, F.flatten())
             except (np.linalg.LinAlgError, ValueError):
-                if vulcan_cfg.use_print_prog:
+                if cfg.solver.use_print_prog:
                     print(f'  Newton solve_banded failed at iter {k_iter}, '
                           f'falling back to Rosenbrock')
                 var.y = y
@@ -555,13 +554,13 @@ class ODESolver:
                 alpha *= 0.5
 
             if not accepted:
-                if vulcan_cfg.use_print_prog:
+                if cfg.solver.use_print_prog:
                     print(f'  Newton line search collapsed at iter {k_iter} '
                           f'(scaled res={res:.2e}), falling back to Rosenbrock')
                 var.y = y
                 return var, False
 
-        if vulcan_cfg.use_print_prog:
+        if cfg.solver.use_print_prog:
             print(f'  Newton hit max_iter ({max_iter}) without converging (res={res:.2e})')
         var.y = y
         return var, False
@@ -574,7 +573,7 @@ class ODESolver:
         to ``lhs_jac_banded`` but executed entirely in NumPy.
         """
         y = var.y
-        if vulcan_cfg.use_condense:
+        if cfg.condensation.use_condense:
             ysum = np.sum(y[:, atm.gas_indx], axis=1)
         else:
             ysum = np.sum(y, axis=1)
@@ -687,7 +686,7 @@ class ODESolver:
                         - (vz[0] > 0)*vz[0]/dzi[0])
         ab_diag [0] -= (-1./dzi[0]*(Dzz[0]/dzi[0])*(ysum[1]+ysum[0])/(2.*ysum[0])
                         + 1./dzi[0]*Dzz[0]/2.*mol_bc0)
-        if vulcan_cfg.use_botflux:
+        if cfg.boundary_conditions.use_botflux:
             ab_diag[0] -= -1.*atm.bot_vdep/dzi[0]
         ab_upper[1] -= (1./dzi[0]*(Kzz[0]/dzi[0])*(ysum[1]+ysum[0])/(2.*ysum[1])
                         - (vz[0] < 0)*vz[0]/dzi[0])
@@ -727,10 +726,10 @@ class ODESolver:
         Ai += dAvm;  Bi += dBvm;  Ci += dCvm
         self._subtract_diffusion_to_jac(dfdy, A, B, C, Ai, Bi, Ci)
 
-        if vulcan_cfg.use_botflux:
+        if cfg.boundary_conditions.use_botflux:
             idx0 = np.arange(ni)
             dfdy[idx0, idx0] -= -atm.bot_vdep / atm.dzi[0]
-        if vulcan_cfg.diff_esc:
+        if cfg.boundary_conditions.diff_esc:
             self._diff_esc_to_jac(dfdy, y, atm)
 
         return dfdy
@@ -748,7 +747,7 @@ class ODESolver:
         A, B, C = self._eddy_coeffs(ysum, atm.dzi, atm.Kzz, atm.vz)
         self._subtract_diffusion_to_jac(dfdy, A, B, C)
 
-        if vulcan_cfg.use_botflux:
+        if cfg.boundary_conditions.use_botflux:
             idx0 = np.arange(ni)
             dfdy[idx0, idx0] -= -atm.bot_vdep / atm.dzi[0]
 
@@ -768,7 +767,7 @@ class ODESolver:
                                             atm.Ti, atm.Tco, atm.g, atm.ms, atm.alpha)
         self._subtract_diffusion_to_jac(dfdy, A, B, C, Ai, Bi, Ci)
 
-        if vulcan_cfg.diff_esc:
+        if cfg.boundary_conditions.diff_esc:
             self._diff_esc_to_jac(dfdy, y, atm)
 
         # Fixed bottom BC: zero column 0 (removes A[0] diagonal and lower couplings
@@ -809,7 +808,7 @@ class ODESolver:
         Ai += dAvs;  Bi += dBvs;  Ci += dCvs
         self._subtract_diffusion_to_jac(dfdy, A, B, C, Ai, Bi, Ci)
 
-        if vulcan_cfg.use_botflux:
+        if cfg.boundary_conditions.use_botflux:
             idx0 = np.arange(ni)
             dfdy[idx0, idx0] -= -atm.bot_vdep / atm.dzi[0]
 
@@ -835,18 +834,18 @@ class ODESolver:
         Ai += dAvs + dAvm;  Bi += dBvs + dBvm;  Ci += dCvs + dCvm
         self._subtract_diffusion_to_jac(dfdy, A, B, C, Ai, Bi, Ci)
 
-        if vulcan_cfg.use_botflux:
+        if cfg.boundary_conditions.use_botflux:
             idx0 = np.arange(ni)
             dfdy[idx0, idx0] -= -atm.bot_vdep / atm.dzi[0]
-        if vulcan_cfg.diff_esc:
+        if cfg.boundary_conditions.diff_esc:
             self._diff_esc_to_jac(dfdy, y, atm)
 
         return dfdy
             
         
     def clip(self, var, para, atm):
-        pos_cut  = vulcan_cfg.pos_cut
-        nega_cut = vulcan_cfg.nega_cut
+        pos_cut  = cfg.solver.pos_cut
+        nega_cut = cfg.solver.nega_cut
         y, ymix = var.y, var.ymix
 
         para.small_y += np.abs(np.sum(y[np.logical_and(y<pos_cut, y>=0)]))
@@ -856,7 +855,7 @@ class ODESolver:
 
         var = self.loss(var)
 
-        if vulcan_cfg.non_gas_sp:
+        if cfg.condensation.non_gas_sp:
             var.y, var.ymix = y, var.y / np.sum(var.y[:, atm.gas_indx], axis=1)[:, np.newaxis]
         else:
             var.y, var.ymix = y, y / np.sum(y, axis=1)[:, np.newaxis]
@@ -864,15 +863,15 @@ class ODESolver:
         return var, para
         
     def loss(self, data_var):
-        for atom in vulcan_cfg.atom_list:
-            if atom not in getattr(vulcan_cfg, 'loss_ex', []):
+        for atom in cfg.network.atom_list:
+            if atom not in cfg.boundary_conditions.loss_ex:
                 data_var.atom_sum[atom] = np.sum([compo[compo_row.index(species[i])][atom] * data_var.y[:,i] for i in range(ni)])
                 data_var.atom_loss[atom] = (data_var.atom_sum[atom] - data_var.atom_ini[atom]) / data_var.atom_ini[atom]
         return data_var
         
     def step_ok(self, var, para):
-        loss_eps = vulcan_cfg.loss_eps
-        rtol     = vulcan_cfg.rtol
+        loss_eps = cfg.solver.loss_eps
+        rtol     = cfg.solver.rtol
 
         return (np.all(var.y >= 0)
                 and np.amax(np.abs(np.fromiter(var.atom_loss.values(), float)
@@ -880,17 +879,17 @@ class ODESolver:
                 and para.delta <= rtol)
             
     def step_reject(self, var, para):
-        rtol = vulcan_cfg.rtol
+        rtol = cfg.solver.rtol
 
         if para.delta > rtol:
             para.delta_count += 1
         elif np.any(var.y < 0):
             para.nega_count += 1
-            if vulcan_cfg.use_print_prog:
+            if cfg.solver.use_print_prog:
                 self.print_nega(var, para)
         else:
             para.loss_count += 1
-            if vulcan_cfg.use_print_prog:
+            if cfg.solver.use_print_prog:
                 self.print_lossBig(para)
 
         var = self.reset_y(var)
@@ -901,8 +900,8 @@ class ODESolver:
         # to pure I-control.
         para.delta_prev = -1.0
 
-        if var.dt < vulcan_cfg.dt_min:
-            var.dt = vulcan_cfg.dt_min
+        if var.dt < cfg.solver.dt_min:
+            var.dt = cfg.solver.dt_min
             var.y[var.y < 0] = 0.
             print('Keep producing negative values! Clipping negative solutions and moving on!')
             return True
@@ -910,11 +909,11 @@ class ODESolver:
         return False
 
     def step_size(self, var, para,
-                  dt_var_min=vulcan_cfg.dt_var_min, dt_var_max=vulcan_cfg.dt_var_max,
-                  dt_min=vulcan_cfg.dt_min, dt_max=vulcan_cfg.dt_max):
+                  dt_var_min=cfg.solver.dt_var_min, dt_var_max=cfg.solver.dt_var_max,
+                  dt_min=cfg.solver.dt_min, dt_max=cfg.solver.dt_max):
         """Adaptive step-size controller.
 
-        Two controllers, selectable via ``vulcan_cfg.use_pi_controller``:
+        Two controllers, selectable via ``cfg.solver.use_pi_controller``:
 
         * Legacy I-controller (default; reproduces pre-PI behaviour
           bit-identically):
@@ -930,13 +929,13 @@ class ODESolver:
         """
         h     = var.dt
         delta = para.delta
-        rtol  = vulcan_cfg.rtol
+        rtol  = cfg.solver.rtol
         p     = self.error_order
 
         if delta == 0:
             delta = 0.01 * rtol
 
-        use_pi = (getattr(vulcan_cfg, 'use_pi_controller', False)
+        use_pi = (cfg.solver.use_pi_controller
                   and para.delta_prev > 0)
         if use_pi:
             a_over_p = 0.7 / p
@@ -959,7 +958,7 @@ class ODESolver:
             
     def reset_y(self, var):
         var.y   = var.y_prev
-        var.dt *= vulcan_cfg.dt_var_min
+        var.dt *= cfg.solver.dt_var_min
         return var
         
     def print_nega(self, data_var, data_para):

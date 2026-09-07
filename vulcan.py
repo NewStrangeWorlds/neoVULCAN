@@ -50,25 +50,50 @@
 import os, sys
 os.environ["OMP_NUM_THREADS"] = "1"
 
+# --- CLI args & config load -------------------------------------------------
+# Must happen before any src/ module is imported: those modules `import vulcan_cfg`
+# at module top, which routes through a shim that requires set_cfg() to have run.
+import argparse
+_argp = argparse.ArgumentParser(description='Run neoVULCAN chemical kinetics simulation.')
+_argp.add_argument('-c', '--config', default='vulcan_cfg.toml',
+                   help='Path to TOML config file (default: vulcan_cfg.toml next to vulcan.py)')
+_argp.add_argument('-n', '--no-remake-chemistry', action='store_true',
+                   help='Skip regenerating chemistry_jax.py')
+_args = _argp.parse_args()
+
+# Setting the current working directory to the script location (mirrors legacy)
+abspath = os.path.abspath(sys.argv[0])
+dname = os.path.dirname(abspath)
+os.chdir(dname)
+
 # Make internal modules in src/ importable
-_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
+_src = os.path.join(dname, 'src')
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
+# Load TOML config and install as process singleton before src/ imports.
+from neovulcan_config import VulcanConfig
+from neovulcan_runtime import set_cfg
+_cfg = VulcanConfig.from_toml(_args.config, base_dir=dname)
+set_cfg(_cfg)
+
+# Regenerate chemistry_jax.py unless suppressed
+if not _args.no_remake_chemistry:
+    print('Making chemistry_jax.py ...')
+    import subprocess
+    subprocess.run(
+        [sys.executable, os.path.join('src', 'make_chemistry_jax.py'), '-c', _args.config],
+        check=True,
+    )
+
 # import public modules
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as pltslope_min
 import matplotlib.legend as lg
 import scipy
 import scipy.optimize as sop
 import time, timeit
 import ast
-
-# no arguments or not setting '-n' (no re-making chemistry_jax.py) option
-if len(sys.argv) < 2 or sys.argv[1] != '-n':
-    print ('Making chemistry_jax.py ...')
-    python_executable = sys.executable
-    os.system(python_executable + ' make_chemistry_jax.py')
 
 # import VULCAN modules
 import store, build_atm
@@ -81,14 +106,7 @@ from rodas3 import Rodas3
 from ode_solver import ODESolver
 from output import Output
 
-# import the configuration inputs
-import vulcan_cfg
-from phy_const import kb, Navo
-
-# Setting the current working directory to the script location
-abspath = os.path.abspath(sys.argv[0])
-dname = os.path.dirname(abspath)
-os.chdir(dname)
+from phy_const import kb, Navo  # noqa: F401
 
 from chemistry_jax import ni, nr  # number of species and reactions in the network
 np.set_printoptions(threshold=np.inf)  # print all for debuging
@@ -118,7 +136,7 @@ data_atm =  make_atm.load_TPK(data_atm)
 # construct Dzz (molecular diffusion)
 
 # calculating the saturation pressure
-if vulcan_cfg.use_condense == True: make_atm.sp_sat(data_atm)
+if _cfg.condensation.use_condense: make_atm.sp_sat(data_atm)
 
 # for reading rates
 rate = ReadRate()
@@ -127,7 +145,7 @@ rate = ReadRate()
 data_var = rate.read_rate(data_var, data_atm)
 
 # for low-T rates e.g. Jupiter       
-if vulcan_cfg.use_lowT_limit_rates == True: data_var = rate.lim_lowT_rates(data_var, data_atm)
+if _cfg.network.use_lowT_limit_rates: data_var = rate.lim_lowT_rates(data_var, data_atm)
     
 # reversing rates
 data_var = rate.rev_rate(data_var, data_atm)
@@ -157,10 +175,10 @@ make_atm.BC_flux(data_atm)
 
 # setting the numerical solver to the designated one in vulcan_cfg
 _solvers = {'Ros2': Ros2, 'Rodas3': Rodas3, 'ODESolver': ODESolver}
-solver = _solvers[vulcan_cfg.ode_solver]()
+solver = _solvers[_cfg.solver.ode_solver]()
 
 # Setting up for photo chemistry
-if vulcan_cfg.use_photo == True:
+if _cfg.photochemistry.use_photo:
     rate.make_bins_read_cross(data_var, data_atm)
     #rate.read_cross(data_var)
     make_atm.read_sflux(data_var, data_atm)

@@ -1,9 +1,10 @@
 import numpy as np
 
-import vulcan_cfg
+from neovulcan_runtime import get_cfg
+cfg = get_cfg()
 import chemistry_jax as chem_funs
 from phy_const import kb, Navo
-from vulcan_cfg import nz
+nz = cfg.atmosphere.nz
 
 species = chem_funs.spec_list
 
@@ -12,8 +13,8 @@ class Condensation:
     """Condensation and evaporation rate updates in the continuum diffusion regime."""
 
     # reaction string -> (gas_sp, conden_sp, m, has_relax, has_humidity)
-    # has_relax:    rates are zeroed when vulcan_cfg.use_relax is set (relax methods take over)
-    # has_humidity: saturation density is multiplied by vulcan_cfg.humidity
+    # has_relax:    rates are zeroed when cfg.condensation.use_relax is set (relax methods take over)
+    # has_humidity: saturation density is multiplied by cfg.condensation.humidity
     _CONDEN_PARAMS = {
         'H2O -> H2O_l_s':   ('H2O',   'H2O_l_s', 18.    /Navo, True,  True ),
         'NH3 -> NH3_l':     ('NH3',   'NH3_l_s', 17.    /Navo, True,  False),
@@ -31,10 +32,10 @@ class Condensation:
             if rf not in self._CONDEN_PARAMS:
                 continue
             gas_sp, conden_sp, m, has_relax, has_humidity = self._CONDEN_PARAMS[rf]
-            if gas_sp not in vulcan_cfg.condense_sp:
+            if gas_sp not in cfg.condensation.condense_sp:
                 continue
 
-            if has_relax and vulcan_cfg.use_relax:
+            if has_relax and cfg.condensation.use_relax:
                 var.k[re]   = np.repeat(0., nz)
                 var.k[re+1] = np.repeat(0., nz)
                 continue
@@ -43,7 +44,7 @@ class Condensation:
             r_p   = atm.r_p[conden_sp]
             sat   = atm.sat_p[gas_sp]/kb/atm.Tco
             if has_humidity:
-                sat *= vulcan_cfg.humidity
+                sat *= cfg.condensation.humidity
 
             Dg   = np.insert(atm.Dzz[:, species.index(gas_sp)], 0, atm.Dzz[0, species.index(gas_sp)])
             rate = Dg * m/rho_p /r_p**2 * (var.y[:, species.index(gas_sp)] - sat)
@@ -57,7 +58,7 @@ class Condensation:
         m     = 18./Navo
         rho_p = atm.rho_p['H2O_l_s']
         r_p   = atm.r_p['H2O_l_s']
-        sat_humidity = atm.sat_p['H2O']/kb/atm.Tco * vulcan_cfg.humidity
+        sat_humidity = atm.sat_p['H2O']/kb/atm.Tco * cfg.condensation.humidity
 
         Dg  = np.insert(atm.Dzz[:, species.index('H2O')], 0, atm.Dzz[0, species.index('H2O')])
         tau = 1./(Dg * m/rho_p /r_p**2 * (var.y[:, species.index('H2O')] - sat_humidity))

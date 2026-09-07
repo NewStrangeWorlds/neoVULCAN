@@ -4,17 +4,23 @@ sys.path.insert(0, '../') # including the upper level of directory for the path 
 import numpy as np 
 import matplotlib.pyplot as plt
 import matplotlib.legend as lg
-import vulcan_cfg
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'src'))
+from neovulcan_runtime import get_cfg_or_load
+cfg = get_cfg_or_load(
+    _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'vulcan_cfg.toml'),
+    base_dir=_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 try: from PIL import Image
 except ImportError: 
     try: import Image
-    except: vulcan_cfg.use_PIL = False
+    except: cfg.plotting.use_PIL = False
 import os, sys
 import pickle
        
 plot_name = 'T1400-S'
 vul_data = '../output/T1400-K7-5XM-noDzz-dbin10.vul'
-plot_dir = '../' + vulcan_cfg.plot_dir
+plot_dir = '../' + cfg.paths.plot_dir
 
 color_index = 0
 colors = ['c','b','g','r','m','y','chocolate','orange','pink','grey','darkred','salmon','steelblue','hotpink','k','c','b','g','r','m','y']
@@ -124,7 +130,7 @@ plt.ylabel("Height (km)", fontsize=16)
 plt.title('Photosphere')
 plt.savefig(plot_dir + plot_name + '.png')
 plt.savefig(plot_dir + plot_name + '.pdf')
-if vulcan_cfg.use_PIL == True:
+if cfg.plotting.use_PIL == True:
     plot = Image.open(plot_dir + plot_name + '.png')
     plot.show()
 else: plt.show()

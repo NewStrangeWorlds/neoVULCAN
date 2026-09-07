@@ -10,7 +10,7 @@ import csv, ast
 try: from PIL import Image
 except ImportError: 
     try: import Image
-    except: vulcan_cfg.use_PIL = False
+    except: cfg.plotting.use_PIL = False
 
 network = 'New-NCHO_earth_photo_network.txt'
 plot_dir = '../plot/'

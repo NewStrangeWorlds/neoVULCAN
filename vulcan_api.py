@@ -10,21 +10,22 @@ import numpy as np
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _regen_chemistry_jax(base_dir):
+def _regen_chemistry_jax(base_dir, config_path):
     """Run make_chemistry_jax.py from base_dir so relative paths inside it work."""
     subprocess.run(
-        [sys.executable, os.path.join(base_dir, 'make_chemistry_jax.py')],
+        [sys.executable, os.path.join(base_dir, 'src', 'make_chemistry_jax.py'),
+         '-c', config_path],
         cwd=base_dir,
         check=True,
     )
 
 
 def _purge_vulcan_modules():
-    """Remove cached src module imports so they re-execute against a fresh vulcan_cfg."""
+    """Remove cached src module imports so they re-execute against a fresh config singleton."""
     for mod in [
         'store', 'build_atm', 'chemistry_jax', 'rates', 'integration',
-        'ros2', 'ode_solver', 'output', 'condensation', 'radiative_transfer',
-        'phy_const',
+        'ros2', 'rodas3', 'ode_solver', 'output', 'condensation', 'radiative_transfer',
+        'phy_const', 'vulcan_cfg',
     ]:
         sys.modules.pop(mod, None)
 
@@ -74,8 +75,20 @@ class VulcanChemistry:
     generated file with those values baked in.
     """
 
-    def __init__(self, base_dir, cfg_overrides=None):
+    def __init__(self, base_dir, config_path=None, cfg_overrides=None):
+        """
+        Parameters
+        ----------
+        base_dir : str
+            Path to the neoVULCAN directory (contains vulcan.py, vulcan_cfg.toml).
+        config_path : str, optional
+            Path to the TOML config. Default: ``<base_dir>/vulcan_cfg.toml``.
+        cfg_overrides : dict, optional
+            Nested dict of overrides, e.g. ``{'solver': {'rtol': 0.5}}``. Merged
+            into the loaded TOML before validation.
+        """
         self.base_dir = os.path.abspath(base_dir)
+        self.config_path = config_path or os.path.join(self.base_dir, 'vulcan_cfg.toml')
         self._cfg_overrides = cfg_overrides or {}
         self._initialized = False
 
@@ -98,7 +111,7 @@ class VulcanChemistry:
         base = self.base_dir
 
         if regenerate_chemistry:
-            _regen_chemistry_jax(base)
+            _regen_chemistry_jax(base, self.config_path)
 
         # Ensure src/ and the VULCAN root are importable
         src = os.path.join(base, 'src')
@@ -106,14 +119,19 @@ class VulcanChemistry:
             if p not in sys.path:
                 sys.path.insert(0, p)
 
-        # Inject per-instance config before any src module is imported so that
-        # module-level statements like `from vulcan_cfg import nz` and the
-        # file open in build_atm.py resolve against our instance.
-        from vulcan_config import VulcanConfig
-        self._cfg = VulcanConfig(base, **self._cfg_overrides)
-        self._cfg._initial_rtol = self._cfg.rtol
-        sys.modules['vulcan_cfg'] = self._cfg
+        # Purge any cached src/* modules so they re-execute against our config.
         _purge_vulcan_modules()
+
+        # Load TOML and install as the process singleton before any src/ import.
+        # The vulcan_cfg shim and src/ modules both read from this singleton.
+        from neovulcan_config import VulcanConfig
+        from neovulcan_runtime import set_cfg
+        self._cfg = VulcanConfig.from_toml(
+            self.config_path, base_dir=base, overrides=self._cfg_overrides,
+            absolutify_paths=True,
+        )
+        set_cfg(self._cfg)
+        self._initial_rtol = self._cfg.solver.rtol
 
         import store
         import build_atm
@@ -146,13 +164,13 @@ class VulcanChemistry:
         self._make_atm = build_atm.Atm()
         self.data_atm = self._make_atm.f_pico(self.data_atm)
         self.data_atm = self._make_atm.load_TPK(self.data_atm)
-        if self._cfg.use_condense:
+        if self._cfg.condensation.use_condense:
             self._make_atm.sp_sat(self.data_atm)
 
         # --- Reaction network and rate coefficients ---
         self._rate = ReadRate()
         self.data_var = self._rate.read_rate(self.data_var, self.data_atm)
-        if self._cfg.use_lowT_limit_rates:
+        if self._cfg.network.use_lowT_limit_rates:
             self.data_var = self._rate.lim_lowT_rates(self.data_var, self.data_atm)
         self.data_var = self._rate.rev_rate(self.data_var, self.data_atm)
         self.data_var = self._rate.remove_rate(self.data_var)
@@ -170,10 +188,10 @@ class VulcanChemistry:
 
         # --- ODE solver ---
         _solvers = {'Ros2': Ros2, 'ODESolver': ODESolver}
-        self._solver = _solvers[self._cfg.ode_solver]()
+        self._solver = _solvers[self._cfg.solver.ode_solver]()
 
         # --- Photochemistry setup ---
-        if self._cfg.use_photo:
+        if self._cfg.photochemistry.use_photo:
             self._rate.make_bins_read_cross(self.data_var, self.data_atm)
             self._make_atm.read_sflux(self.data_var, self.data_atm)
             self._solver.rt(self.data_var, self.data_atm)
@@ -225,12 +243,12 @@ class VulcanChemistry:
 
         # Recompute thermal rate coefficients for the new T profile
         self.data_var = self._rate.read_rate(self.data_var, self.data_atm)
-        if self._cfg.use_lowT_limit_rates:
+        if self._cfg.network.use_lowT_limit_rates:
             self.data_var = self._rate.lim_lowT_rates(self.data_var, self.data_atm)
         self.data_var = self._rate.rev_rate(self.data_var, self.data_atm)
         self.data_var = self._rate.remove_rate(self.data_var)
 
-        if self._cfg.use_photo:
+        if self._cfg.photochemistry.use_photo:
             self._solver.rt(self.data_var, self.data_atm)
 
     def run_to_convergence(self, warm_start=False, dt_factor=1e-3, count_min=20):
@@ -281,11 +299,7 @@ class VulcanChemistry:
 
         # Reset integration-time variables so convergence checks work correctly
         self.data_var.t = 0.
-<<<<<<< Updated upstream
-        self.data_var.dt = self._cfg.dttry
-=======
         self.data_var.dt = dt_start
->>>>>>> Stashed changes
         self.data_var.y_time = []
         self.data_var.t_time = []
         self.data_var.atom_loss_time = []
@@ -296,11 +310,11 @@ class VulcanChemistry:
         self.data_var.aflux_change = 0.
 
         # Restore rtol to its configured starting value (may have been adapted)
-        self._cfg.rtol = self._cfg._initial_rtol
+        self._cfg.solver.rtol = self._initial_rtol
 
         # Reset photo-update frequency in case it was switched to final value
-        if self._cfg.use_photo:
-            self._integ.update_photo_frq = self._cfg.ini_update_photo_frq
+        if self._cfg.photochemistry.use_photo:
+            self._integ.update_photo_frq = self._cfg.photochemistry.ini_update_photo_frq
 
         saved_count_min = cfg_solver.count_min
         if warm:

@@ -1,20 +1,32 @@
 # Diagnostic tool for output largest rates
 
+import argparse
 import sys, os
 
 # Make internal modules in src/ importable
-_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
-if _src not in sys.path:
-    sys.path.insert(0, _src)
+_root = os.path.dirname(os.path.abspath(__file__))
+_src = os.path.join(_root, 'src')
+for _p in (_src, _root):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+_argp = argparse.ArgumentParser()
+_argp.add_argument('-c', '--config', default='vulcan_cfg.toml')
+_args, _ = _argp.parse_known_args()
+
+from neovulcan_config import VulcanConfig
+from neovulcan_runtime import set_cfg, get_cfg
+_cfg_path = _args.config if os.path.isabs(_args.config) else os.path.join(_root, _args.config)
+set_cfg(VulcanConfig.from_toml(_cfg_path, base_dir=_root))
+cfg = get_cfg()
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.legend as lg
-import vulcan_cfg
 try: from PIL import Image
 except ImportError:
     try: import Image
-    except ImportError: vulcan_cfg.use_PIL = False
+    except ImportError: cfg.plotting.use_PIL = False
 import pickle
 
 import chem_funs
@@ -27,7 +39,7 @@ vul_data = 'output/.vul'
 
 # setting the numerical solver to the designated one in vulcan_cfg
 _solvers = {'Ros2': Ros2, 'ODESolver': ODESolver}
-solver = _solvers[vulcan_cfg.ode_solver]()
+solver = _solvers[cfg.solver.ode_solver]()
 
 # the number of fastest reactions to print out
 top_num = 100

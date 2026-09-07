@@ -1,11 +1,12 @@
 import numpy as np
-import scipy
+from scipy.linalg.lapack import dgbtrf, dgbtrs
 
-import vulcan_cfg
+from neovulcan_runtime import get_cfg
+cfg = get_cfg()
 import build_atm
 import chemistry_jax as chem_funs
 from chemistry_jax import ni
-from vulcan_cfg import nz
+nz = cfg.atmosphere.nz
 
 from chemistry_jax import chemdf
 
@@ -56,32 +57,27 @@ class Ros2(ODESolver):
         y, ymix, h, k = var.y, var.ymix, var.dt, var.k
         M, dzi, Kzz = atm.M, atm.dzi, atm.Kzz
 
-        if not vulcan_cfg.use_vm_mol:
-            if vulcan_cfg.use_moldiff and not vulcan_cfg.use_settling:
-                diffdf     = self.diffdf
-                jac_fn     = self.lhs_jac_banded
-                use_banded = True
-            elif vulcan_cfg.use_moldiff and vulcan_cfg.use_settling:
-                diffdf     = self.diffdf_settling
-                jac_fn     = self.lhs_jac_settling
-                use_banded = False
+        # diffdf still uses the numpy variants (only ~1.5 ms/step total, so
+        # not worth porting yet); the LHS Jacobian goes through the unified
+        # fused JAX kernel `lhs_jac_banded`, which routes settling/vm/no_mol
+        # via the cached vs/vm/Dzz/thermal_flag/vm_bot_flag arrays.
+        if not cfg.atmosphere.use_vm_mol:
+            if cfg.atmosphere.use_moldiff and not cfg.condensation.use_settling:
+                diffdf = self.diffdf
+            elif cfg.atmosphere.use_moldiff and cfg.condensation.use_settling:
+                diffdf = self.diffdf_settling
             else:
-                diffdf     = self.diffdf_no_mol
-                jac_fn     = self.lhs_jac_no_mol
-                use_banded = False
+                diffdf = self.diffdf_no_mol
         else:
-            if vulcan_cfg.use_moldiff and not vulcan_cfg.use_settling:
-                diffdf     = self.diffdf_vm
-                jac_fn     = self.lhs_jac_tot_vm
-                use_banded = False
-            elif vulcan_cfg.use_moldiff and vulcan_cfg.use_settling:
-                diffdf     = self.diffdf_settling_vm
-                jac_fn     = self.lhs_jac_settling_vm
-                use_banded = False
+            if cfg.atmosphere.use_moldiff and not cfg.condensation.use_settling:
+                diffdf = self.diffdf_vm
+            elif cfg.atmosphere.use_moldiff and cfg.condensation.use_settling:
+                diffdf = self.diffdf_settling_vm
             else:
-                diffdf     = self.diffdf_no_mol
-                jac_fn     = self.lhs_jac_no_mol
-                use_banded = False
+                diffdf = self.diffdf_no_mol
+
+        jac_fn     = self.lhs_jac_banded
+        use_banded = True
 
         r = 1. + 1./2.**0.5
 
@@ -89,25 +85,26 @@ class Ros2(ODESolver):
 
         if use_banded:
             lhs_b, bw = jac_fn(var, atm)
-            if vulcan_cfg.use_condense and para.fix_species_start:
-                for sp in vulcan_cfg.fix_species:
-                    if not vulcan_cfg.fix_species_from_coldtrap_lev:
+            # lhs_b is in LAPACK band storage (3*bw+1 rows; main diagonal at row 2*bw).
+            if cfg.condensation.use_condense and para.fix_species_start:
+                for sp in cfg.condensation.fix_species:
+                    if not cfg.condensation.fix_species_from_coldtrap_lev:
                         pass
                     else:
                         pfix_indx = atm.conden_min_lev[sp]
                         atm.fix_sp_indx[sp] = np.arange(species.index(sp), species.index(sp) + ni*(pfix_indx), ni)
                     df[atm.fix_sp_indx[sp]] = 0
                     lhs_b[:, atm.fix_sp_indx[sp]] = 0.
-                    lhs_b[bw, atm.fix_sp_indx[sp]] = 1./(r*h)
-            if vulcan_cfg.use_ion:
+                    lhs_b[2*bw, atm.fix_sp_indx[sp]] = 1./(r*h)
+            if cfg.photochemistry.use_ion:
                 df[atm.fix_e_indx] = 0
                 lhs_b[:, atm.fix_e_indx] = 0.
-                lhs_b[bw, atm.fix_e_indx] = 1./(r*h)
+                lhs_b[2*bw, atm.fix_e_indx] = 1./(r*h)
         else:
             lhs = jac_fn(var, atm)
-            if vulcan_cfg.use_condense and para.fix_species_start:
-                for sp in vulcan_cfg.fix_species:
-                    if not vulcan_cfg.fix_species_from_coldtrap_lev:
+            if cfg.condensation.use_condense and para.fix_species_start:
+                for sp in cfg.condensation.fix_species:
+                    if not cfg.condensation.fix_species_from_coldtrap_lev:
                         pass
                     else:
                         pfix_indx = atm.conden_min_lev[sp]
@@ -115,62 +112,75 @@ class Ros2(ODESolver):
                     df[atm.fix_sp_indx[sp]] = 0
                     lhs[atm.fix_sp_indx[sp], :] = 0
                     lhs[atm.fix_sp_indx[sp], atm.fix_sp_indx[sp]] = 1./(r*h)
-            if vulcan_cfg.use_ion:
+            if cfg.photochemistry.use_ion:
                 df[atm.fix_e_indx] = 0
                 lhs[atm.fix_e_indx, :] = 0
                 lhs[atm.fix_e_indx, atm.fix_e_indx] = 1./(r*h)
             lhs_b, bw = self.store_bandM(lhs, ni, nz)
 
-        k1_flat = scipy.linalg.solve_banded((bw, bw), lhs_b, df)
+        # Factor lhs_b once (dgbtrf, in-place), then back-substitute twice
+        # (one dgbtrs per stage — the W-method shares the same LHS).  Old code
+        # called scipy.linalg.solve_banded twice, which re-factored on each
+        # call; factor cost dominates the solve at bw=2*ni-1, so reuse here
+        # is a ~25-30% per-step win.  lhs_b is already in LAPACK band storage
+        # (lhs_jac_banded materialised it directly), so no padding needed.
+        ab_factored, ipiv, info = dgbtrf(lhs_b, bw, bw, overwrite_ab=1)
+        if info != 0:
+            raise RuntimeError(f"dgbtrf failed: info={info}")
+        k1_flat, info = dgbtrs(ab_factored, bw, bw, df, ipiv)
+        if info != 0:
+            raise RuntimeError(f"dgbtrs (k1) failed: info={info}")
         k1 = k1_flat.reshape(y.shape)
 
         yk2 = y + k1/r
         df = chemdf(yk2, M, k).flatten() + diffdf(yk2, atm).flatten()
 
-        if vulcan_cfg.use_condense and para.fix_species_start:
-            for sp in vulcan_cfg.fix_species:
+        if cfg.condensation.use_condense and para.fix_species_start:
+            for sp in cfg.condensation.fix_species:
                 df[atm.fix_sp_indx[sp]] = 0
-        if vulcan_cfg.use_ion:
+        if cfg.photochemistry.use_ion:
             df[atm.fix_e_indx] = 0
 
         rhs = df - 2./(r*h)*k1_flat
-        k2 = scipy.linalg.solve_banded((bw, bw), lhs_b, rhs)
+        k2, info = dgbtrs(ab_factored, bw, bw, rhs, ipiv)
+        if info != 0:
+            raise RuntimeError(f"dgbtrs (k2) failed: info={info}")
         k2 = k2.reshape(y.shape)
 
         sol = y + 3./(2.*r)*k1 + 1/(2.*r)*k2
 
-        if getattr(vulcan_cfg, 'use_fix_H2He', False) and 'H2' not in vulcan_cfg.use_fix_sp_bot and var.t > 1e6:
-            vulcan_cfg.use_fix_sp_bot['H2'] = var.ymix[0, species.index('H2')]
-            vulcan_cfg.use_fix_sp_bot['He'] = var.ymix[0, species.index('He')]
+        if cfg.boundary_conditions.use_fix_H2He and 'H2' not in cfg.boundary_conditions.use_fix_sp_bot and var.t > 1e6:
+            cfg.boundary_conditions.use_fix_sp_bot['H2'] = var.ymix[0, species.index('H2')]
+            cfg.boundary_conditions.use_fix_sp_bot['He'] = var.ymix[0, species.index('He')]
             print("After 1e6 sec, H2 and He are fixed at "
                   + str((var.ymix[0, species.index('H2')], var.ymix[0, species.index('He')])))
-            self.fix_sp_bot_index = [species.index(sp) for sp in vulcan_cfg.use_fix_sp_bot.keys()]
-            self.fix_sp_bot_mix = np.array([vulcan_cfg.use_fix_sp_bot[sp] for sp in vulcan_cfg.use_fix_sp_bot.keys()])
+            self.fix_sp_bot_index = [species.index(sp) for sp in cfg.boundary_conditions.use_fix_sp_bot.keys()]
+            self.fix_sp_bot_mix = np.array([cfg.boundary_conditions.use_fix_sp_bot[sp] for sp in cfg.boundary_conditions.use_fix_sp_bot.keys()])
 
-        if vulcan_cfg.use_fix_sp_bot:
+        if cfg.boundary_conditions.use_fix_sp_bot:
             sol[0, self.fix_sp_bot_index] = self.fix_sp_bot_mix * atm.n_0[0]
 
         delta = np.abs(sol - yk2)
         delta[ymix < self.mtol] = 0
         delta[sol < self.atol] = 0
 
-        if vulcan_cfg.use_botflux or vulcan_cfg.use_fix_sp_bot:
+        if cfg.boundary_conditions.use_botflux or cfg.boundary_conditions.use_fix_sp_bot:
             delta[0] = 0
 
-        if vulcan_cfg.use_condense:
+        if cfg.condensation.use_condense:
             delta[:, self.non_gas_sp_index] = 0
             delta[:, self.condense_sp_index] = 0
 
             if para.fix_species_start:
-                for sp in vulcan_cfg.fix_species:
-                    if not vulcan_cfg.fix_species_from_coldtrap_lev:
+                for sp in cfg.condensation.fix_species:
+                    if not cfg.condensation.fix_species_from_coldtrap_lev:
                         sol[:, species.index(sp)] = var.fix_y[sp].copy()
                     else:
                         pfix_indx = atm.conden_min_lev[sp]
                         sol[:pfix_indx, species.index(sp)] = var.fix_y[sp].copy()[:pfix_indx]
                     delta[:, species.index(sp)] = 0
 
-        if vulcan_cfg.use_print_delta and para.count % vulcan_cfg.print_prog_num == 0:
+        if cfg.solver.use_print_delta and para.count % cfg.solver.print_prog_num == 0:
             max_indx = np.nanargmax(delta/sol, axis=1)
             max_lev_indx = np.nanargmax(delta/sol)
             print('Largest delta (truncation error) from nz = ' + str(int(max_lev_indx/ni)))
@@ -182,14 +192,14 @@ class Ros2(ODESolver):
 
         var.y = sol
 
-        if vulcan_cfg.non_gas_sp:
+        if cfg.condensation.non_gas_sp:
             var.ymix = var.y / np.sum(var.y[:, atm.gas_indx], axis=1)[:, np.newaxis]
         else:
             var.ymix = var.y / np.sum(var.y, axis=1)[:, np.newaxis]
 
         para.delta = delta
 
-        if vulcan_cfg.use_ion:
+        if cfg.photochemistry.use_ion:
             var.y[:, species.index('e')] = 0
             for sp in var.charge_list:
                 var.y[:, species.index('e')] -= compo[compo_row.index(sp)]['e'] * var.y[:, species.index(sp)]
@@ -203,7 +213,7 @@ class Ros2(ODESolver):
 
         bottom = np.copy(ymix[0])
 
-        if vulcan_cfg.use_moldiff:
+        if cfg.atmosphere.use_moldiff:
             diffdf  = self.diffdf
             jac_tot = self.lhs_jac_fix_all_bot
         else:
@@ -216,14 +226,27 @@ class Ros2(ODESolver):
         lhs = jac_tot(var, atm)
 
         lhs_b, bw = self.store_bandM(lhs, ni, nz)
-        k1_flat = scipy.linalg.solve_banded((bw, bw), lhs_b, df)
+
+        # Factor once, back-substitute twice — same trick as in solver().
+        N = lhs_b.shape[1]
+        ab_lapack = np.empty((3 * bw + 1, N))
+        ab_lapack[:bw] = 0.0
+        ab_lapack[bw:] = lhs_b
+        ab_factored, ipiv, info = dgbtrf(ab_lapack, bw, bw, overwrite_ab=1)
+        if info != 0:
+            raise RuntimeError(f"dgbtrf failed: info={info}")
+        k1_flat, info = dgbtrs(ab_factored, bw, bw, df, ipiv)
+        if info != 0:
+            raise RuntimeError(f"dgbtrs (k1) failed: info={info}")
         k1 = k1_flat.reshape(y.shape)
 
         yk2 = y + k1/r
         df = chemdf(yk2, M, k).flatten() + diffdf(yk2, atm).flatten()
 
         rhs = df - 2./(r*h)*k1_flat
-        k2 = scipy.linalg.solve_banded((bw, bw), lhs_b, rhs)
+        k2, info = dgbtrs(ab_factored, bw, bw, rhs, ipiv)
+        if info != 0:
+            raise RuntimeError(f"dgbtrs (k2) failed: info={info}")
         k2 = k2.reshape(y.shape)
 
         sol = y + 3./(2.*r)*k1 + 1/(2.*r)*k2
@@ -238,14 +261,14 @@ class Ros2(ODESolver):
 
         var.y = sol
 
-        if vulcan_cfg.non_gas_sp:
+        if cfg.condensation.non_gas_sp:
             var.ymix = var.y / np.sum(var.y[:, atm.gas_indx], axis=1)[:, np.newaxis]
         else:
             var.ymix = var.y / np.sum(var.y, axis=1)[:, np.newaxis]
 
         para.delta = delta
 
-        if vulcan_cfg.use_ion:
+        if cfg.photochemistry.use_ion:
             var.y[:, species.index('e')] = 0
             for sp in var.charge_list:
                 var.y[:, species.index('e')] -= compo[compo_row.index(sp)]['e'] * var.y[:, species.index(sp)]
@@ -253,7 +276,7 @@ class Ros2(ODESolver):
         return var, para
 
     def naming_solver(self, para):
-        if vulcan_cfg.use_moldiff:
+        if cfg.atmosphere.use_moldiff:
             print('Include molecular diffusion.')
         else:
             print('No molecular diffusion.')
@@ -271,4 +294,4 @@ class Ros2(ODESolver):
 
     # step_size is provided by the ODESolver base class (handles both the
     # legacy I-controller and the optional Gustafsson PI controller via
-    # vulcan_cfg.use_pi_controller).  Ros2 inherits error_order = 2.
+    # cfg.solver.use_pi_controller).  Ros2 inherits error_order = 2.
