@@ -127,7 +127,7 @@ neoVULCAN/
 │   ├── neovulcan_config.py    Pydantic schema (VulcanConfig)
 │   ├── neovulcan_runtime.py   process-singleton holding the loaded config
 │   ├── make_chemistry_jax.py  generator: produces chemistry_jax.py from a network file
-│   ├── chemistry_jax.py       auto-generated; do not edit by hand
+│   ├── chemistry_jax.py       auto-generated (network tables + kernels); do not edit by hand
 │   ├── integration.py         time-stepping loop
 │   ├── ros2.py, rodas3.py     Rosenbrock ODE solvers
 │   ├── ode_solver.py          base ODE machinery, Jacobian assembly, LHS factorisation
@@ -137,7 +137,8 @@ neoVULCAN/
 │   ├── condensation.py        condensation kinetics
 │   ├── output.py              .vul file writer, plotting helpers
 │   ├── phy_const.py           physical constants
-│   └── jacobian_jax.py        JAX-fused Jacobian kernel
+│   ├── jacobian_jax.py        JAX-fused Jacobian kernels (banded and block form)
+│   └── block_solver.py        block-tridiagonal LU for the Rosenbrock LHS (JAX)
 │
 ├── tests/                   # pytest tests + benchmarks + dev tools
 ├── plot_py/                 # plotting scripts for .vul output
