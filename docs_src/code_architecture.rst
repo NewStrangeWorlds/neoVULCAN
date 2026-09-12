@@ -19,13 +19,14 @@ Top-level layout
    ├── src/
    │   ├── neovulcan_config.py  # Pydantic TOML schema (VulcanConfig)
    │   ├── neovulcan_runtime.py # process-wide config singleton
-   │   ├── make_chemistry_jax.py# code-generator for chemistry_jax.py
-   │   ├── chemistry_jax.py     # auto-generated chemistry kernel
+   │   ├── make_chemistry_jax.py# generator: network -> chemistry_jax.py
+   │   ├── chemistry_jax.py     # auto-generated network tables + kernels
    │   ├── build_atm.py
    │   ├── rates.py
    │   ├── ode_solver.py / ros2.py / rodas3.py
    │   ├── integration.py
-   │   ├── jacobian_jax.py
+   │   ├── jacobian_jax.py      # LHS Jacobian assembly (block + banded)
+   │   ├── block_solver.py      # block-tridiagonal LU in JAX
    │   ├── radiative_transfer.py    # TwoStreamRT + DisortRT
    │   ├── condensation.py
    │   ├── output.py / store.py / phy_const.py
@@ -60,13 +61,16 @@ Entry points
     loaded file and re-validated by Pydantic.
 
 ``src/make_chemistry_jax.py``
-    Reads the network file, applies stoichiometric algebra symbolically
-    through SymPy, and emits ``src/chemistry_jax.py`` — a self-contained
-    JAX module exposing the layer-wise right-hand side
-    ``chemdf(y, M, k)``, the per-layer Jacobian ``chem_jac_blocks``, the
-    Gibbs free energies, and the species metadata. This is the only
-    place where SymPy is used; the production solver does not depend on
-    it. It is invoked automatically by ``vulcan.py`` (and by
+    Reads the network file and compiles it into small stoichiometry
+    tables (reactant indices and stoichiometries per reaction direction,
+    third-body powers, and pre-sorted scatter lists for the right-hand
+    side and for the non-zero Jacobian entries). It emits
+    ``src/chemistry_jax.py`` — the tables as array literals plus fixed
+    JAX kernels that consume them, exposing the layer-wise right-hand
+    side ``chemdf(y, M, k)``, the analytic per-layer Jacobian
+    ``chem_jac_blocks``, the Gibbs free energies, and the species
+    metadata. No symbolic algebra is involved. It is invoked
+    automatically by ``vulcan.py`` (and by
     ``vulcan_api.VulcanChemistry.initialize`` with
     ``regenerate_chemistry=True``) unless ``-n`` is passed.
 
@@ -150,30 +154,45 @@ Python module.
 
 :mod:`chemistry_jax`
     Auto-generated. Exposes ``chemdf(y, M, k)`` (the chemistry RHS,
-    ``vmap``-ed over layers), ``chem_jac_blocks`` (per-layer Jacobian
-    via ``jax.jacfwd``), ``Gibbs(i, T)`` (equilibrium constants), and
-    network metadata (``spec_list``, ``ni``, ``nr``). The module
-    configures JAX for 64-bit precision and CPU execution; change
-    these settings in ``make_chemistry_jax.py`` if you want different
-    behaviour. The file also contains dormant infrastructure for a
-    future log-space exponential-Rosenbrock integrator
-    (``chemdf_logy``, ``_jac_logy_*``).
+    ``vmap``-ed over layers), ``chem_jac_blocks`` (analytic per-layer
+    Jacobian assembled by scatter onto the structurally non-zero
+    entries), ``Gibbs(i, T)`` (equilibrium constants),
+    ``k_dict_to_array`` and network metadata (``spec_list``, ``ni``,
+    ``nr``). A NumPy implementation of the same tables is available as
+    a fallback (``USE_JAX_CHEM = False``). The module configures JAX
+    for 64-bit precision and CPU execution; change these settings in
+    ``make_chemistry_jax.py`` if you want different behaviour.
 
 :mod:`jacobian_jax`
     Assembly of the full LHS Jacobian for the Rosenbrock W-matrix.
-    ``_lhs_jac_banded_kernel(y, M, k, c0, atm_arrays)`` fuses the
-    chemistry block (from ``chem_jac_blocks``), the :math:`c_0\,I`
-    term, the eddy and molecular diffusion blocks, and the
-    boundary-condition rows into a single banded matrix in LAPACK
-    format. The kernel is JIT-compiled; per-instance caches of the
-    JAX-converted atmospheric arrays reduce conversion overhead.
+    ``_lhs_jac_blocks_kernel(y, M, k, c0, atm_arrays)`` fuses the
+    chemistry block, the :math:`c_0\,I` term, the eddy and molecular
+    diffusion blocks, and the boundary-condition rows into
+    block-tridiagonal storage (dense diagonal blocks, diagonal
+    off-blocks) for :mod:`block_solver`; ``_lhs_jac_banded_kernel``
+    emits the same matrix in LAPACK band format. Both share the
+    transport assembly (``_diffusion_bands``) and are JIT-compiled;
+    per-instance caches of the JAX-converted atmospheric arrays reduce
+    conversion overhead.
+
+:mod:`block_solver`
+    Block-tridiagonal LU for the W-matrix in JAX: ``factor_block_tridiag``
+    (forward elimination with a pivoted dense LU per layer, exploiting
+    the diagonal off-blocks), ``solve_block_tridiag`` (one right-hand
+    side against the stored factors, reused across Rosenbrock stages)
+    and ``apply_fixed_rows`` (freezing of fixed condensable species and
+    electrons). Roughly half the cost of the banded LAPACK
+    factorisation; selected by ``solver.linear_solver``.
 
 :mod:`ode_solver`
     Base class :class:`ode_solver.ODESolver` providing common spatial
     discretisation and step-control helpers. Computes the diffusion
     coefficients (``_eddy_coeffs``, ``_mol_diff_coeffs``), the
     transport RHS (``diffdf``, ``diffdf_settling``, ``diffdf_no_mol``,
-    ``diffdf_vm``), the banded Jacobian (``lhs_jac_banded``), and the
+    ``diffdf_vm``), the LHS Jacobian in block or banded storage
+    (``lhs_jac_blocks``, ``lhs_jac_banded``), the shared
+    assemble-freeze-factor step used by both integrators
+    (``make_lhs_solver``, returning a solve callable), and the
     step-control logic (``step_ok``, ``step_reject``, ``step_size``,
     ``clip``). Holds the
     :class:`~radiative_transfer.RadiativeTransfer` instance produced by

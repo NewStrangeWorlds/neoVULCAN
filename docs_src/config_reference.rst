@@ -510,6 +510,14 @@ Schema: :class:`neovulcan_config.SolverConfig`.
      - ``"Ros2"``, ``"Rodas3"`` or ``"ODESolver"`` (case-sensitive).
        Default ``"Ros2"``. ``"Rodas3"`` requires
        ``atmosphere.use_moldiff = true``.
+   * - ``linear_solver``
+     - str
+     - Linear solver for the Rosenbrock W-matrix :math:`c_0 I - J`.
+       ``"block_thomas"`` (default): block-tridiagonal LU in JAX
+       (:mod:`block_solver`), about twice as fast as the alternative.
+       ``"banded"``: LAPACK ``dgbtrf``/``dgbtrs`` on the full band, kept
+       as the reference implementation. Both give the same result to
+       round-off.
    * - ``use_pi_controller``
      - bool
      - Use a PI step-size controller instead of the default integrating

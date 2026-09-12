@@ -78,6 +78,10 @@ Chemistry kernel and Jacobian
    :members:
    :undoc-members:
 
+.. automodule:: block_solver
+   :members:
+   :undoc-members:
+
 
 ODE solver
 ----------
