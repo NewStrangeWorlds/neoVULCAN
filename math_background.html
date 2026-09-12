@@ -326,10 +326,11 @@ side of species <span class="math notranslate nohighlight">\(i\)</span> is</p>
 = (\nu^P_{ij} - \nu^R_{ij})\,
   k_j\, \prod_\alpha n_\alpha^{\nu^R_{\alpha j}}.\]</div>
 </div>
-<p>In neoVULCAN this expression is generated symbolically by
-<code class="docutils literal notranslate"><span class="pre">make_chemistry_jax.py</span></code> and compiled into a vectorised JAX kernel
-(<code class="docutils literal notranslate"><span class="pre">chemistry_jax.chemdf</span></code>) so that it can be evaluated and differentiated
-efficiently on every layer.</p>
+<p>In neoVULCAN <code class="docutils literal notranslate"><span class="pre">make_chemistry_jax.py</span></code> compiles the network into
+stoichiometry tables (reactant indices, stoichiometries, third-body
+powers and net coefficients per reaction) that fixed, vectorised JAX
+kernels (<code class="docutils literal notranslate"><span class="pre">chemistry_jax.chemdf</span></code> and its analytic Jacobian) evaluate on
+every layer; see <a class="reference internal" href="numerics.html"><span class="doc">Numerical methods</span></a>.</p>
 </section>
 <section id="photochemistry">
 <h2>Photochemistry<a class="headerlink" href="#photochemistry" title="Link to this heading">¶</a></h2>

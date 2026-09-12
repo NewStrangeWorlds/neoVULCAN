@@ -263,8 +263,8 @@ integrate the stiff transport–reaction system</p>
 <p>forward in time until a numerical steady state is reached. Compared to the
 original VULCAN, neoVULCAN</p>
 <ul class="simple">
-<li><p>uses <strong>JAX</strong> for automatic differentiation of the chemistry Jacobian and
-for vectorised rate evaluations,</p></li>
+<li><p>uses <strong>JAX</strong> for the chemistry kernels (table-driven right-hand side and
+analytic Jacobian) and for the block-tridiagonal linear solve,</p></li>
 <li><p>exposes a <strong>library API</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">vulcan_api.VulcanChemistry</span></code>) for embedding
 in three-dimensional general-circulation models,</p></li>
 <li><p>supports both the second-order Rosenbrock (<code class="docutils literal notranslate"><span class="pre">Ros2</span></code>) and a third-order,

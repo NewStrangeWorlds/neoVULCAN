@@ -184,13 +184,17 @@ plotting) is unchanged. See :doc:`math_background` for the physics and
 Performance notes
 -----------------
 
-* The JAX kernels (``chemistry_jax.py`` and ``jacobian_jax.py``) are
-  ``jit``-compiled on the first call. The first time step of a run
-  therefore pays a one-off cost of a few seconds; subsequent steps are
-  fast.
-* The Jacobian is stored in LAPACK banded format and factorised once
-  per time step with ``dgbtrf`` / ``dgbtrs``, which is markedly faster
-  than the general ``scipy.linalg.solve_banded``.
+* The JAX kernels (``chemistry_jax.py``, ``jacobian_jax.py`` and
+  ``block_solver.py``) are ``jit``-compiled on the first call. The first
+  time step of a run therefore pays a one-off cost of about two seconds;
+  subsequent steps are fast. Within one process (e.g. the library API)
+  the compiled kernels are reused across calls.
+* The W-matrix is factorised once per time step and back-substituted once
+  per Rosenbrock stage. The default block-tridiagonal solver
+  (``solver.linear_solver = "block_thomas"``) is about twice as fast as
+  the LAPACK banded factorisation, which remains available as
+  ``"banded"``. On one CPU core a Ros2 step costs roughly 20-40 ms for
+  networks of 70-90 species on 120-150 layers.
 * Radiative transfer is the next biggest cost after the linear solves.
   The update frequency switches automatically from
   ``photochemistry.ini_update_photo_frq`` to

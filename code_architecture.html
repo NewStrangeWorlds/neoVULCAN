@@ -264,13 +264,14 @@ generated from docstrings is in <a class="reference internal" href="api.html"><s
 ├── src/
 │   ├── neovulcan_config.py  # Pydantic TOML schema (VulcanConfig)
 │   ├── neovulcan_runtime.py # process-wide config singleton
-│   ├── make_chemistry_jax.py# code-generator for chemistry_jax.py
-│   ├── chemistry_jax.py     # auto-generated chemistry kernel
+│   ├── make_chemistry_jax.py# generator: network -&gt; chemistry_jax.py
+│   ├── chemistry_jax.py     # auto-generated network tables + kernels
 │   ├── build_atm.py
 │   ├── rates.py
 │   ├── ode_solver.py / ros2.py / rodas3.py
 │   ├── integration.py
-│   ├── jacobian_jax.py
+│   ├── jacobian_jax.py      # LHS Jacobian assembly (block + banded)
+│   ├── block_solver.py      # block-tridiagonal LU in JAX
 │   ├── radiative_transfer.py    # TwoStreamRT + DisortRT
 │   ├── condensation.py
 │   ├── output.py / store.py / phy_const.py
@@ -304,13 +305,16 @@ a <code class="docutils literal notranslate"><span class="pre">config_path</span
 by TOML section name); the overrides are deep-merged on top of the
 loaded file and re-validated by Pydantic.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">src/make_chemistry_jax.py</span></code></dt><dd><p>Reads the network file, applies stoichiometric algebra symbolically
-through SymPy, and emits <code class="docutils literal notranslate"><span class="pre">src/chemistry_jax.py</span></code> — a self-contained
-JAX module exposing the layer-wise right-hand side
-<code class="docutils literal notranslate"><span class="pre">chemdf(y,</span> <span class="pre">M,</span> <span class="pre">k)</span></code>, the per-layer Jacobian <code class="docutils literal notranslate"><span class="pre">chem_jac_blocks</span></code>, the
-Gibbs free energies, and the species metadata. This is the only
-place where SymPy is used; the production solver does not depend on
-it. It is invoked automatically by <code class="docutils literal notranslate"><span class="pre">vulcan.py</span></code> (and by
+<dt><code class="docutils literal notranslate"><span class="pre">src/make_chemistry_jax.py</span></code></dt><dd><p>Reads the network file and compiles it into small stoichiometry
+tables (reactant indices and stoichiometries per reaction direction,
+third-body powers, and pre-sorted scatter lists for the right-hand
+side and for the non-zero Jacobian entries). It emits
+<code class="docutils literal notranslate"><span class="pre">src/chemistry_jax.py</span></code> — the tables as array literals plus fixed
+JAX kernels that consume them, exposing the layer-wise right-hand
+side <code class="docutils literal notranslate"><span class="pre">chemdf(y,</span> <span class="pre">M,</span> <span class="pre">k)</span></code>, the analytic per-layer Jacobian
+<code class="docutils literal notranslate"><span class="pre">chem_jac_blocks</span></code>, the Gibbs free energies, and the species
+metadata. No symbolic algebra is involved. It is invoked
+automatically by <code class="docutils literal notranslate"><span class="pre">vulcan.py</span></code> (and by
 <code class="docutils literal notranslate"><span class="pre">vulcan_api.VulcanChemistry.initialize</span></code> with
 <code class="docutils literal notranslate"><span class="pre">regenerate_chemistry=True</span></code>) unless <code class="docutils literal notranslate"><span class="pre">-n</span></code> is passed.</p>
 </dd>
@@ -388,28 +392,42 @@ Gibbs free energies; and builds the photolysis machinery
 that turns the actinic flux into J-values).</p>
 </dd>
 <dt><a class="reference internal" href="api.html#module-chemistry_jax" title="chemistry_jax"><code class="xref py py-mod docutils literal notranslate"><span class="pre">chemistry_jax</span></code></a></dt><dd><p>Auto-generated. Exposes <code class="docutils literal notranslate"><span class="pre">chemdf(y,</span> <span class="pre">M,</span> <span class="pre">k)</span></code> (the chemistry RHS,
-<code class="docutils literal notranslate"><span class="pre">vmap</span></code>-ed over layers), <code class="docutils literal notranslate"><span class="pre">chem_jac_blocks</span></code> (per-layer Jacobian
-via <code class="docutils literal notranslate"><span class="pre">jax.jacfwd</span></code>), <code class="docutils literal notranslate"><span class="pre">Gibbs(i,</span> <span class="pre">T)</span></code> (equilibrium constants), and
-network metadata (<code class="docutils literal notranslate"><span class="pre">spec_list</span></code>, <code class="docutils literal notranslate"><span class="pre">ni</span></code>, <code class="docutils literal notranslate"><span class="pre">nr</span></code>). The module
-configures JAX for 64-bit precision and CPU execution; change
-these settings in <code class="docutils literal notranslate"><span class="pre">make_chemistry_jax.py</span></code> if you want different
-behaviour. The file also contains dormant infrastructure for a
-future log-space exponential-Rosenbrock integrator
-(<code class="docutils literal notranslate"><span class="pre">chemdf_logy</span></code>, <code class="docutils literal notranslate"><span class="pre">_jac_logy_*</span></code>).</p>
+<code class="docutils literal notranslate"><span class="pre">vmap</span></code>-ed over layers), <code class="docutils literal notranslate"><span class="pre">chem_jac_blocks</span></code> (analytic per-layer
+Jacobian assembled by scatter onto the structurally non-zero
+entries), <code class="docutils literal notranslate"><span class="pre">Gibbs(i,</span> <span class="pre">T)</span></code> (equilibrium constants),
+<code class="docutils literal notranslate"><span class="pre">k_dict_to_array</span></code> and network metadata (<code class="docutils literal notranslate"><span class="pre">spec_list</span></code>, <code class="docutils literal notranslate"><span class="pre">ni</span></code>,
+<code class="docutils literal notranslate"><span class="pre">nr</span></code>). A NumPy implementation of the same tables is available as
+a fallback (<code class="docutils literal notranslate"><span class="pre">USE_JAX_CHEM</span> <span class="pre">=</span> <span class="pre">False</span></code>). The module configures JAX
+for 64-bit precision and CPU execution; change these settings in
+<code class="docutils literal notranslate"><span class="pre">make_chemistry_jax.py</span></code> if you want different behaviour.</p>
 </dd>
 <dt><code class="xref py py-mod docutils literal notranslate"><span class="pre">jacobian_jax</span></code></dt><dd><p>Assembly of the full LHS Jacobian for the Rosenbrock W-matrix.
-<code class="docutils literal notranslate"><span class="pre">_lhs_jac_banded_kernel(y,</span> <span class="pre">M,</span> <span class="pre">k,</span> <span class="pre">c0,</span> <span class="pre">atm_arrays)</span></code> fuses the
-chemistry block (from <code class="docutils literal notranslate"><span class="pre">chem_jac_blocks</span></code>), the <span class="math notranslate nohighlight">\(c_0\,I\)</span>
-term, the eddy and molecular diffusion blocks, and the
-boundary-condition rows into a single banded matrix in LAPACK
-format. The kernel is JIT-compiled; per-instance caches of the
-JAX-converted atmospheric arrays reduce conversion overhead.</p>
+<code class="docutils literal notranslate"><span class="pre">_lhs_jac_blocks_kernel(y,</span> <span class="pre">M,</span> <span class="pre">k,</span> <span class="pre">c0,</span> <span class="pre">atm_arrays)</span></code> fuses the
+chemistry block, the <span class="math notranslate nohighlight">\(c_0\,I\)</span> term, the eddy and molecular
+diffusion blocks, and the boundary-condition rows into
+block-tridiagonal storage (dense diagonal blocks, diagonal
+off-blocks) for <code class="xref py py-mod docutils literal notranslate"><span class="pre">block_solver</span></code>; <code class="docutils literal notranslate"><span class="pre">_lhs_jac_banded_kernel</span></code>
+emits the same matrix in LAPACK band format. Both share the
+transport assembly (<code class="docutils literal notranslate"><span class="pre">_diffusion_bands</span></code>) and are JIT-compiled;
+per-instance caches of the JAX-converted atmospheric arrays reduce
+conversion overhead.</p>
+</dd>
+<dt><code class="xref py py-mod docutils literal notranslate"><span class="pre">block_solver</span></code></dt><dd><p>Block-tridiagonal LU for the W-matrix in JAX: <code class="docutils literal notranslate"><span class="pre">factor_block_tridiag</span></code>
+(forward elimination with a pivoted dense LU per layer, exploiting
+the diagonal off-blocks), <code class="docutils literal notranslate"><span class="pre">solve_block_tridiag</span></code> (one right-hand
+side against the stored factors, reused across Rosenbrock stages)
+and <code class="docutils literal notranslate"><span class="pre">apply_fixed_rows</span></code> (freezing of fixed condensable species and
+electrons). Roughly half the cost of the banded LAPACK
+factorisation; selected by <code class="docutils literal notranslate"><span class="pre">solver.linear_solver</span></code>.</p>
 </dd>
 <dt><code class="xref py py-mod docutils literal notranslate"><span class="pre">ode_solver</span></code></dt><dd><p>Base class <code class="xref py py-class docutils literal notranslate"><span class="pre">ode_solver.ODESolver</span></code> providing common spatial
 discretisation and step-control helpers. Computes the diffusion
 coefficients (<code class="docutils literal notranslate"><span class="pre">_eddy_coeffs</span></code>, <code class="docutils literal notranslate"><span class="pre">_mol_diff_coeffs</span></code>), the
 transport RHS (<code class="docutils literal notranslate"><span class="pre">diffdf</span></code>, <code class="docutils literal notranslate"><span class="pre">diffdf_settling</span></code>, <code class="docutils literal notranslate"><span class="pre">diffdf_no_mol</span></code>,
-<code class="docutils literal notranslate"><span class="pre">diffdf_vm</span></code>), the banded Jacobian (<code class="docutils literal notranslate"><span class="pre">lhs_jac_banded</span></code>), and the
+<code class="docutils literal notranslate"><span class="pre">diffdf_vm</span></code>), the LHS Jacobian in block or banded storage
+(<code class="docutils literal notranslate"><span class="pre">lhs_jac_blocks</span></code>, <code class="docutils literal notranslate"><span class="pre">lhs_jac_banded</span></code>), the shared
+assemble-freeze-factor step used by both integrators
+(<code class="docutils literal notranslate"><span class="pre">make_lhs_solver</span></code>, returning a solve callable), and the
 step-control logic (<code class="docutils literal notranslate"><span class="pre">step_ok</span></code>, <code class="docutils literal notranslate"><span class="pre">step_reject</span></code>, <code class="docutils literal notranslate"><span class="pre">step_size</span></code>,
 <code class="docutils literal notranslate"><span class="pre">clip</span></code>). Holds the
 <code class="xref py py-class docutils literal notranslate"><span class="pre">RadiativeTransfer</span></code> instance produced by

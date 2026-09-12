@@ -279,10 +279,10 @@ relation around the current solution <a class="reference internal" href="referen
   \mathbf{f}(\mathbf{n}_k),\]</div>
 </div>
 <p>with <span class="math notranslate nohighlight">\(J = \partial \mathbf{f}/\partial \mathbf{n}\)</span> the Jacobian of
-the right-hand side. Each step costs a single (banded) linear solve.
+the right-hand side. Each step costs a single block-tridiagonal linear solve.
 Verwer et al. (1997) recommended the second-order Rosenbrock method for
 chemical kinetics for being stable over large step sizes while requiring
-only a Jacobian evaluation and a banded linear solve per step. That
+only a Jacobian evaluation and a block-tridiagonal linear solve per step. That
 recommendation, originally adopted in <a class="reference internal" href="references.html#tsai2017" id="id3"><span>[Tsai2017]</span></a>, still drives the
 default <code class="docutils literal notranslate"><span class="pre">Ros2</span></code> solver in neoVULCAN.</p>
 </section>
@@ -302,9 +302,9 @@ default <code class="docutils literal notranslate"><span class="pre">Ros2</span>
   + \tfrac{1}{2}\Delta t\, \mathbf{g}_2.\end{split}\]</div>
 </div>
 <p>The matrix <span class="math notranslate nohighlight">\((\mathbf{I} - \gamma\Delta t\, J)\)</span> is the same in both
-stages, so it is LU-factorised once with <code class="docutils literal notranslate"><span class="pre">dgbtrf</span></code> and back-substituted
-twice with <code class="docutils literal notranslate"><span class="pre">dgbtrs</span></code>. This is the dominant cost of a step and the main
-reason Ros2 is efficient.</p>
+stages, so it is LU-factorised once and back-substituted twice (see
+<em>Linear solve</em> below for the two available backends). The factorisation
+is the dominant cost of a step and the main reason Ros2 is efficient.</p>
 <p>The embedded first-order estimate
 <span class="math notranslate nohighlight">\(\mathbf{n}^{*}_{k+1} = \mathbf{n}_k + \Delta t\, \mathbf{g}_1\)</span>
 gives the local truncation error <span class="math notranslate nohighlight">\(\mathcal{E} = |\mathbf{n}_{k+1} -
@@ -353,7 +353,7 @@ W\, \mathbf{k}_4 &amp;= \mathbf{f}(\mathbf{n}_k + 2\mathbf{k}_1 + \mathbf{k}_3)
 \mathbf{n}_{k+1} &amp;= \mathbf{n}_k + 2\mathbf{k}_1 + \mathbf{k}_3 + \mathbf{k}_4.\end{split}\]</div>
 </div>
 <p>The third stage re-uses <span class="math notranslate nohighlight">\(\mathbf{f}\)</span> from the second, so only three
-RHS evaluations and four banded back-substitutions per step are required.
+RHS evaluations and four back-substitutions per step are required.
 The embedded estimate is simply <span class="math notranslate nohighlight">\(|\mathbf{k}_4|\)</span>, which gives a
 second-order error indicator.</p>
 <p>Rodas3 is more expensive per step than Ros2 (roughly <span class="math notranslate nohighlight">\(2\times\)</span>),
@@ -369,41 +369,90 @@ configuration (<code class="docutils literal notranslate"><span class="pre">use_
 <p>The Jacobian <span class="math notranslate nohighlight">\(J = \partial \mathbf{f}/\partial \mathbf{n}\)</span> is the
 sum of a chemistry part and a transport part. Because diffusion only
 couples a layer to its two neighbours, <span class="math notranslate nohighlight">\(J\)</span> has a <strong>block
-tridiagonal</strong> structure with one <span class="math notranslate nohighlight">\(N_i \times N_i\)</span> block per layer
-and two off-diagonal blocks of the same size <a class="reference internal" href="references.html#tsai2017" id="id5"><span>[Tsai2017]</span></a> (their
-Figure 14). neoVULCAN stores this matrix in LAPACK banded format and uses
-<code class="docutils literal notranslate"><span class="pre">dgbtrf</span></code>/<code class="docutils literal notranslate"><span class="pre">dgbtrs</span></code> to factorise and solve it.</p>
+tridiagonal</strong> structure with one dense <span class="math notranslate nohighlight">\(N_i \times N_i\)</span> block per
+layer and two off-diagonal blocks of the same size <a class="reference internal" href="references.html#tsai2017" id="id5"><span>[Tsai2017]</span></a> (their
+Figure 14). Transport acts on every species separately, so the
+off-diagonal blocks are themselves <em>diagonal</em>; only the chemistry couples
+species, and only within a layer. neoVULCAN exploits exactly this
+structure in its linear solver (see below).</p>
 <section id="chemistry-block">
 <h3>Chemistry block<a class="headerlink" href="#chemistry-block" title="Link to this heading">¶</a></h3>
-<p>The chemistry block is computed exactly by JAX’s forward-mode automatic
-differentiation, applied to <code class="docutils literal notranslate"><span class="pre">chemistry_jax.chemdf</span></code>. Concretely,</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">chem_jac_blocks</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jacfwd</span><span class="p">(</span><span class="n">_chemdf_single</span><span class="p">)</span>
-<span class="c1"># shape: (nz, ni, ni), one dense block per layer</span>
-</pre></div>
+<p>Every reaction in the network is mass action,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[r_d = k_d\, M^{m_d} \prod_{\alpha} n_\alpha^{\nu^R_{\alpha d}},\]</div>
 </div>
-<p>is <code class="docutils literal notranslate"><span class="pre">vmap</span></code>-ed over layers and JIT-compiled. The resulting kernel is
-called once per Rosenbrock step and reused for all stages of that step.
-Because the auto-generated <code class="docutils literal notranslate"><span class="pre">chemdf</span></code> is symbolic in the rate
-coefficients, <code class="docutils literal notranslate"><span class="pre">jacfwd</span></code> gives the analytical Jacobian to machine
-precision and is much cheaper than re-running the symbolic differentiation
-of the original VULCAN.</p>
+<p>so the chemistry right-hand side and its Jacobian are fully determined by
+a few integer tables: the reactant indices and stoichiometries of each
+reaction direction, the third-body power, and the signed net
+stoichiometry of every species produced or consumed. <code class="docutils literal notranslate"><span class="pre">make_chemistry_jax.py</span></code>
+compiles the network file into these tables and writes them, together with
+fixed kernels that consume them, to <code class="docutils literal notranslate"><span class="pre">chemistry_jax.py</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_chemdf_single</span></code> forms all rates, cancels forward against reverse per
+reversible pair, and scatter-adds the net rates onto the species;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_jac_single</span></code> forms <span class="math notranslate nohighlight">\(\partial r_d/\partial n_\alpha\)</span> from
+leave-one-out reactant products and scatter-adds the contributions onto
+the structurally non-zero <span class="math notranslate nohighlight">\((i, \alpha)\)</span> entries (about a quarter
+of the block for the SNCHO network).</p></li>
+</ul>
+<p>Both are <code class="docutils literal notranslate"><span class="pre">vmap</span></code>-ed over layers and JIT-compiled. The Jacobian is analytic
+and agrees with forward-mode automatic differentiation of the RHS to
+machine precision, which is what the test suite checks. Compared to the
+earlier approach of emitting one explicit expression per species and
+differentiating it with <code class="docutils literal notranslate"><span class="pre">jax.jacfwd</span></code>, the table form traces in
+milliseconds instead of ~13 s per process start-up and evaluates the
+Jacobian about twice as fast.</p>
 </section>
 <section id="transport-blocks">
 <h3>Transport blocks<a class="headerlink" href="#transport-blocks" title="Link to this heading">¶</a></h3>
-<p>Eddy and molecular diffusion contribute a constant (in <span class="math notranslate nohighlight">\(\mathbf{n}\)</span>)
-tridiagonal block per species. These are assembled in
-<code class="docutils literal notranslate"><span class="pre">jacobian_jax._lhs_jac_banded_kernel</span></code>, which also adds the
-<span class="math notranslate nohighlight">\(c_0\,\mathbf{I}\)</span> term required by the Rosenbrock W-matrix and the
-boundary-condition rows. The resulting banded matrix is returned in the
-LAPACK layout <code class="docutils literal notranslate"><span class="pre">(2\,b_w</span> <span class="pre">+</span> <span class="pre">1)</span> <span class="pre">\times</span> <span class="pre">(N_i</span> <span class="pre">N_z)</span></code> ready for <code class="docutils literal notranslate"><span class="pre">dgbtrf</span></code>.</p>
+<p>Eddy and molecular diffusion contribute a tridiagonal block per species
+(diagonal within each layer block). These are assembled together with the
+chemistry block and the <span class="math notranslate nohighlight">\(c_0\,\mathbf{I}\)</span> term of the Rosenbrock
+W-matrix in <code class="docutils literal notranslate"><span class="pre">jacobian_jax</span></code>, which also adds the boundary-condition rows.
+The same arithmetic is emitted in two storage layouts:
+<code class="docutils literal notranslate"><span class="pre">_lhs_jac_blocks_kernel</span></code> returns the dense diagonal blocks
+<span class="math notranslate nohighlight">\(D_j\)</span> (<code class="docutils literal notranslate"><span class="pre">(nz,</span> <span class="pre">ni,</span> <span class="pre">ni)</span></code>) and the diagonals of the off-diagonal blocks
+(<code class="docutils literal notranslate"><span class="pre">(nz-1,</span> <span class="pre">ni)</span></code> each); <code class="docutils literal notranslate"><span class="pre">_lhs_jac_banded_kernel</span></code> returns the LAPACK band
+layout <code class="docutils literal notranslate"><span class="pre">(2</span> <span class="pre">b_w</span> <span class="pre">+</span> <span class="pre">1)</span> <span class="pre">x</span> <span class="pre">(N_i</span> <span class="pre">N_z)</span></code> with <span class="math notranslate nohighlight">\(b_w = 2N_i - 1\)</span>.</p>
+</section>
+<section id="linear-solve">
+<h3>Linear solve<a class="headerlink" href="#linear-solve" title="Link to this heading">¶</a></h3>
+<p>The W-matrix is factorised once per step and back-substituted once per
+Rosenbrock stage. The backend is selected by <code class="docutils literal notranslate"><span class="pre">solver.linear_solver</span></code>:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;block_thomas&quot;</span></code> (default)</dt><dd><p>A block Thomas sweep in JAX (<code class="docutils literal notranslate"><span class="pre">block_solver.py</span></code>). Forward elimination
+forms the Schur complements <span class="math notranslate nohighlight">\(A_j = D_j - L_j A_{j-1}^{-1}
+U_{j-1}\)</span> with a pivoted dense LU per layer; since <span class="math notranslate nohighlight">\(L_j\)</span> and
+<span class="math notranslate nohighlight">\(U_{j-1}\)</span> are diagonal the correction is one multi-right-hand-side
+triangular solve and an element-wise scaling, no matrix product. The
+per-layer pivoting is what keeps the sweep stable at the conditioning
+the chemistry produces (<span class="math notranslate nohighlight">\(c_0\)</span> tiny against loss rates of
+<span class="math notranslate nohighlight">\(10^{17}\,\mathrm{s^{-1}}\)</span>). Frozen unknowns (fixed condensable
+species, electrons) are handled by replacing their rows with
+<span class="math notranslate nohighlight">\(c_0\)</span> times unit rows in block storage.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;banded&quot;</span></code></dt><dd><p>LAPACK <code class="docutils literal notranslate"><span class="pre">dgbtrf</span></code>/<code class="docutils literal notranslate"><span class="pre">dgbtrs</span></code> on the full band. The general banded
+factorisation treats the zeros between the diagonal off-blocks as
+fill and costs roughly twice as much; it is kept as the reference
+implementation and for comparison.</p>
+</dd>
+</dl>
+<p>Both paths share the assembly and the freezing of fixed unknowns through
+<code class="docutils literal notranslate"><span class="pre">ODESolver.make_lhs_solver</span></code>; they agree to round-off (the test suite
+checks the matrices entry by entry and one full Ros2 step).</p>
 </section>
 <section id="cost">
 <h3>Cost<a class="headerlink" href="#cost" title="Link to this heading">¶</a></h3>
-<p>The factorisation is <span class="math notranslate nohighlight">\(\mathcal{O}(N_z\, N_i^{\,2})\)</span> and the
-back-substitution is <span class="math notranslate nohighlight">\(\mathcal{O}(N_z\, N_i)\)</span>. The Jacobian
-assembly is dominated by the JAX chemistry block; for a network with
-<span class="math notranslate nohighlight">\(\sim 100\)</span> species and <code class="docutils literal notranslate"><span class="pre">nz</span> <span class="pre">=</span> <span class="pre">120</span></code> it takes a few milliseconds per
-step on a modern CPU.</p>
+<p>Both factorisations scale as <span class="math notranslate nohighlight">\(\mathcal{O}(N_z\, N_i^{\,3})\)</span> and the
+back-substitutions as <span class="math notranslate nohighlight">\(\mathcal{O}(N_z\, N_i^{\,2})\)</span>. Measured on
+one CPU core for HD 189733b with 150 layers and the 69-species NCHO
+network, one Rosenbrock stage-solve pair costs about 18 ms with the block
+solver (10 ms factorisation, 5 ms Jacobian assembly, the rest RHS and
+back-substitutions) against about 33 ms with the banded solver; for
+120 layers and the 93-species SNCHO network the corresponding numbers are
+41 ms and 62 ms. Start-up of a fresh process, dominated by JAX tracing and
+compilation, is about 2 s.</p>
 </section>
 </section>
 <section id="optional-damped-newton-finisher">
@@ -565,8 +614,9 @@ converged solution.</p>
 <li><p>the chemistry RHS through <code class="docutils literal notranslate"><span class="pre">chemistry_jax.chemdf</span></code>;</p></li>
 <li><p>the transport RHS through <code class="docutils literal notranslate"><span class="pre">ode_solver.ODESolver.diffdf</span></code> (or a
 variant for advection/settling);</p></li>
-<li><p>the Jacobian through <code class="docutils literal notranslate"><span class="pre">jacobian_jax._lhs_jac_banded_kernel</span></code>;</p></li>
-<li><p>an LU factorisation of the W-matrix with <code class="docutils literal notranslate"><span class="pre">dgbtrf</span></code>;</p></li>
+<li><p>the Jacobian through <code class="docutils literal notranslate"><span class="pre">jacobian_jax._lhs_jac_blocks_kernel</span></code> (or the
+banded variant, depending on <code class="docutils literal notranslate"><span class="pre">solver.linear_solver</span></code>);</p></li>
+<li><p>an LU factorisation of the W-matrix, block Thomas in JAX by default;</p></li>
 <li><p>the Rosenbrock stages with the chosen scheme (<code class="docutils literal notranslate"><span class="pre">ros2</span></code> or <code class="docutils literal notranslate"><span class="pre">rodas3</span></code>);</p></li>
 <li><p>the truncation-error check, step rejection, and step-size update;</p></li>
 <li><p>periodically (every <code class="docutils literal notranslate"><span class="pre">ini_update_photo_frq</span></code> or
@@ -640,6 +690,7 @@ loop continues until one of the termination criteria above fires.</p>
 <li><a class="reference internal" href="#the-jacobian">The Jacobian</a><ul>
 <li><a class="reference internal" href="#chemistry-block">Chemistry block</a></li>
 <li><a class="reference internal" href="#transport-blocks">Transport blocks</a></li>
+<li><a class="reference internal" href="#linear-solve">Linear solve</a></li>
 <li><a class="reference internal" href="#cost">Cost</a></li>
 </ul>
 </li>

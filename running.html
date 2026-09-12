@@ -322,16 +322,16 @@ it noticeably reduces start-up time.</p></td>
 (GCM) or another driver, use <code class="xref py py-class docutils literal notranslate"><span class="pre">vulcan_api.VulcanChemistry</span></code>. A
 typical GCM time step looks like</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
-<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;/path/to/VULCAN&#39;</span><span class="p">)</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s1">'/path/to/VULCAN'</span><span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">neoVULCAN.vulcan_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">VulcanChemistry</span>
 
-<span class="n">BASE</span> <span class="o">=</span> <span class="s1">&#39;/path/to/neoVULCAN&#39;</span>
+<span class="n">BASE</span> <span class="o">=</span> <span class="s1">'/path/to/neoVULCAN'</span>
 <span class="n">chem</span> <span class="o">=</span> <span class="n">VulcanChemistry</span><span class="p">(</span>
     <span class="n">BASE</span><span class="p">,</span>
-    <span class="n">config_path</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">BASE</span><span class="si">}</span><span class="s1">/cfg_examples/HD189.cfg&#39;</span><span class="p">,</span>
+    <span class="n">config_path</span><span class="o">=</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">BASE</span><span class="si">}</span><span class="s1">/cfg_examples/HD189.cfg'</span><span class="p">,</span>
     <span class="n">cfg_overrides</span><span class="o">=</span><span class="p">{</span>
-        <span class="s1">&#39;photochemistry&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;use_photo&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s1">&#39;rt_scheme&#39;</span><span class="p">:</span> <span class="s1">&#39;disort&#39;</span><span class="p">},</span>
-        <span class="s1">&#39;solver&#39;</span><span class="p">:</span>         <span class="p">{</span><span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
+        <span class="s1">'photochemistry'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'use_photo'</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s1">'rt_scheme'</span><span class="p">:</span> <span class="s1">'disort'</span><span class="p">},</span>
+        <span class="s1">'solver'</span><span class="p">:</span>         <span class="p">{</span><span class="s1">'rtol'</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
     <span class="p">},</span>
 <span class="p">)</span>
 <span class="n">chem</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">regenerate_chemistry</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -427,13 +427,17 @@ plotting) is unchanged. See <a class="reference internal" href="math_background.
 <section id="performance-notes">
 <h2>Performance notes<a class="headerlink" href="#performance-notes" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p>The JAX kernels (<code class="docutils literal notranslate"><span class="pre">chemistry_jax.py</span></code> and <code class="docutils literal notranslate"><span class="pre">jacobian_jax.py</span></code>) are
-<code class="docutils literal notranslate"><span class="pre">jit</span></code>-compiled on the first call. The first time step of a run
-therefore pays a one-off cost of a few seconds; subsequent steps are
-fast.</p></li>
-<li><p>The Jacobian is stored in LAPACK banded format and factorised once
-per time step with <code class="docutils literal notranslate"><span class="pre">dgbtrf</span></code> / <code class="docutils literal notranslate"><span class="pre">dgbtrs</span></code>, which is markedly faster
-than the general <code class="docutils literal notranslate"><span class="pre">scipy.linalg.solve_banded</span></code>.</p></li>
+<li><p>The JAX kernels (<code class="docutils literal notranslate"><span class="pre">chemistry_jax.py</span></code>, <code class="docutils literal notranslate"><span class="pre">jacobian_jax.py</span></code> and
+<code class="docutils literal notranslate"><span class="pre">block_solver.py</span></code>) are <code class="docutils literal notranslate"><span class="pre">jit</span></code>-compiled on the first call. The first
+time step of a run therefore pays a one-off cost of about two seconds;
+subsequent steps are fast. Within one process (e.g. the library API)
+the compiled kernels are reused across calls.</p></li>
+<li><p>The W-matrix is factorised once per time step and back-substituted once
+per Rosenbrock stage. The default block-tridiagonal solver
+(<code class="docutils literal notranslate"><span class="pre">solver.linear_solver</span> <span class="pre">=</span> <span class="pre">&quot;block_thomas&quot;</span></code>) is about twice as fast as
+the LAPACK banded factorisation, which remains available as
+<code class="docutils literal notranslate"><span class="pre">&quot;banded&quot;</span></code>. On one CPU core a Ros2 step costs roughly 20-40 ms for
+networks of 70-90 species on 120-150 layers.</p></li>
 <li><p>Radiative transfer is the next biggest cost after the linear solves.
 The update frequency switches automatically from
 <code class="docutils literal notranslate"><span class="pre">photochemistry.ini_update_photo_frq</span></code> to

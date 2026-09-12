@@ -298,7 +298,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 </pre></div>
 </div>
 <p>For a GPU build of JAX, replace the JAX lines in <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> with</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;jax[cuda12]&quot;</span><span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"jax[cuda12]"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>-f<span class="w"> </span>https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 </pre></div>
 </div>
@@ -322,7 +322,7 @@ through its Python bindings <code class="docutils literal notranslate"><span cla
 its native bottom-to-top layer ordering through without copies). DisORT++
 is <em>only</em> loaded when a run sets</p>
 <div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[photochemistry]</span>
-<span class="n">rt_scheme</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;disort&quot;</span>
+<span class="n">rt_scheme</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s2">"disort"</span>
 <span class="n">disort_nstr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span><span class="w">         </span><span class="c1"># number of streams</span>
 </pre></div>
 </div>

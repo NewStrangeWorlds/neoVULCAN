@@ -891,179 +891,188 @@ Schema: <code class="xref py py-class docutils literal notranslate"><span class=
 Default <code class="docutils literal notranslate"><span class="pre">&quot;Ros2&quot;</span></code>. <code class="docutils literal notranslate"><span class="pre">&quot;Rodas3&quot;</span></code> requires
 <code class="docutils literal notranslate"><span class="pre">atmosphere.use_moldiff</span> <span class="pre">=</span> <span class="pre">true</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_pi_controller</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">linear_solver</span></code></p></td>
+<td><p>str</p></td>
+<td><p>Linear solver for the Rosenbrock W-matrix <span class="math notranslate nohighlight">\(c_0 I - J\)</span>.
+<code class="docutils literal notranslate"><span class="pre">&quot;block_thomas&quot;</span></code> (default): block-tridiagonal LU in JAX
+(<code class="xref py py-mod docutils literal notranslate"><span class="pre">block_solver</span></code>), about twice as fast as the alternative.
+<code class="docutils literal notranslate"><span class="pre">&quot;banded&quot;</span></code>: LAPACK <code class="docutils literal notranslate"><span class="pre">dgbtrf</span></code>/<code class="docutils literal notranslate"><span class="pre">dgbtrs</span></code> on the full band, kept
+as the reference implementation. Both give the same result to
+round-off.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_pi_controller</span></code></p></td>
 <td><p>bool</p></td>
 <td><p>Use a PI step-size controller instead of the default integrating
 controller. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_print_prog</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_print_prog</span></code></p></td>
 <td><p>bool</p></td>
 <td><p>Print a progress line every <code class="docutils literal notranslate"><span class="pre">print_prog_num</span></code> steps. Default
 <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_print_delta</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_print_delta</span></code></p></td>
 <td><p>bool</p></td>
 <td><p>Print the per-step truncation error. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">print_prog_num</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">print_prog_num</span></code></p></td>
 <td><p>int</p></td>
 <td><p>Progress-print frequency in steps. Default <code class="docutils literal notranslate"><span class="pre">500</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dttry</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dttry</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Initial time step (s). Default <code class="docutils literal notranslate"><span class="pre">1.0e-10</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">trun_min</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">trun_min</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Minimum total integration time (s). Default <code class="docutils literal notranslate"><span class="pre">1.0e2</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">runtime</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">runtime</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Maximum total integration time (s). Default <code class="docutils literal notranslate"><span class="pre">1.0e22</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dt_min</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dt_min</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Hard lower bound on the time step (s). Default <code class="docutils literal notranslate"><span class="pre">1.0e-14</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dt_max</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dt_max</span></code></p></td>
 <td><p>float, optional</p></td>
 <td><p>Hard upper bound on the time step (s). If omitted, derived as
 <code class="docutils literal notranslate"><span class="pre">runtime</span> <span class="pre">*</span> <span class="pre">1e-5</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dt_var_max</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dt_var_max</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Maximum per-step time-step growth factor. Default <code class="docutils literal notranslate"><span class="pre">2.0</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dt_var_min</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dt_var_min</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Minimum per-step time-step shrink factor. Default <code class="docutils literal notranslate"><span class="pre">0.5</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">count_min</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">count_min</span></code></p></td>
 <td><p>int</p></td>
 <td><p>Minimum number of steps before convergence checks fire. Default
 <code class="docutils literal notranslate"><span class="pre">120</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">count_max</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">count_max</span></code></p></td>
 <td><p>int</p></td>
 <td><p>Hard upper bound on the number of steps. Default <code class="docutils literal notranslate"><span class="pre">40000</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">atol</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">atol</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Absolute tolerance (cm<sup>-3</sup>). Number densities below this
 are excluded from the error norms. Default <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mtol</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mtol</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Relative-tolerance floor used by the step-size controller.
 Default <code class="docutils literal notranslate"><span class="pre">1.0e-22</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mtol_conv</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mtol_conv</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Relative-tolerance floor used by the convergence check. Default
 <code class="docutils literal notranslate"><span class="pre">1.0e-16</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pos_cut</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pos_cut</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Clip small positive values to zero. Default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nega_cut</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">nega_cut</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Threshold below which negative updates trigger a step rejection.
 Default <code class="docutils literal notranslate"><span class="pre">-1.0</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">loss_eps</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">loss_eps</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Element-conservation tolerance used by the adaptive <code class="docutils literal notranslate"><span class="pre">rtol</span></code>
 controller. Default <code class="docutils literal notranslate"><span class="pre">1.0e12</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">yconv_cri</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">yconv_cri</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Relative change <span class="math notranslate nohighlight">\(\Delta\hat n\)</span> threshold (the
 <span class="math notranslate nohighlight">\(\delta\)</span> in <a class="reference internal" href="numerics.html"><span class="doc">Numerical methods</span></a>). Default <code class="docutils literal notranslate"><span class="pre">0.01</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">slope_cri</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">slope_cri</span></code></p></td>
 <td><p>float</p></td>
 <td><p><span class="math notranslate nohighlight">\(\Delta\hat n / \Delta\tau\)</span> threshold (the <span class="math notranslate nohighlight">\(\epsilon\)</span>
 in <a class="reference internal" href="numerics.html"><span class="doc">Numerical methods</span></a>). Default <code class="docutils literal notranslate"><span class="pre">1.0e-4</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">yconv_min</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">yconv_min</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Relaxed alternative for <code class="docutils literal notranslate"><span class="pre">yconv_cri</span></code>. Default <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">flux_cri</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">flux_cri</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Relative change of the actinic flux threshold. Default <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">flux_atol</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">flux_atol</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Absolute tolerance for the actinic flux
 (photons cm<sup>-2</sup>s<sup>-1</sup>nm<sup>-1</sup>). Default
 <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">st_factor</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">st_factor</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Fraction of the integration time used for the steady-state
 window (default 0.5 means the last half is examined).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">conv_step</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">conv_step</span></code></p></td>
 <td><p>int</p></td>
 <td><p>Hard cap on the number of past steps used in the convergence
 check. Default <code class="docutils literal notranslate"><span class="pre">500</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">conver_ignore</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">conver_ignore</span></code></p></td>
 <td><p>list[str]</p></td>
 <td><p>Species excluded from the convergence diagnostic (used for
 species whose noise level dominates the dominant-<span class="math notranslate nohighlight">\(\Delta\)</span>
 test but does not matter for the result). Default <code class="docutils literal notranslate"><span class="pre">[]</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rtol</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rtol</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Relative tolerance <span class="math notranslate nohighlight">\(\mathcal{T}\)</span> for the step-size
 controller. Default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">post_conden_rtol</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">post_conden_rtol</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Value of <code class="docutils literal notranslate"><span class="pre">rtol</span></code> switched to after <code class="docutils literal notranslate"><span class="pre">fix_species_time</span></code>. Default
 <code class="docutils literal notranslate"><span class="pre">0.05</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_adapt_rtol</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_adapt_rtol</span></code></p></td>
 <td><p>bool</p></td>
 <td><p>Adapt <code class="docutils literal notranslate"><span class="pre">rtol</span></code> dynamically based on element-conservation drift.
 Default <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rtol_min</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rtol_min</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Lower bound for the adaptive <code class="docutils literal notranslate"><span class="pre">rtol</span></code>. Default <code class="docutils literal notranslate"><span class="pre">0.02</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rtol_max</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rtol_max</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Upper bound for the adaptive <code class="docutils literal notranslate"><span class="pre">rtol</span></code>. Default <code class="docutils literal notranslate"><span class="pre">2.5</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_newton_finisher</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_newton_finisher</span></code></p></td>
 <td><p>bool</p></td>
 <td><p>Enable the optional damped-Newton tail described in
 <a class="reference internal" href="numerics.html"><span class="doc">Numerical methods</span></a>. Default <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">newton_switch_dy</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">newton_switch_dy</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Per-step fractional change below which the Newton finisher takes
 over. Default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">newton_cooldown</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">newton_cooldown</span></code></p></td>
 <td><p>int</p></td>
 <td><p>Number of Rosenbrock steps that must elapse between successive
 Newton firings. Default <code class="docutils literal notranslate"><span class="pre">200</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">newton_max_iter</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">newton_max_iter</span></code></p></td>
 <td><p>int</p></td>
 <td><p>Maximum number of Newton iterations per firing. Default <code class="docutils literal notranslate"><span class="pre">20</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">newton_res_tol</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">newton_res_tol</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Residual norm at which the Newton finisher considers itself
 converged. Default <code class="docutils literal notranslate"><span class="pre">1.0e-6</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">newton_alpha_min</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">newton_alpha_min</span></code></p></td>
 <td><p>float</p></td>
 <td><p>Smallest damping factor allowed by the line-search inside the
 Newton finisher. Default <code class="docutils literal notranslate"><span class="pre">1.0e-3</span></code>.</p></td>
