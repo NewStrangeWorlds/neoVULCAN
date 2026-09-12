@@ -179,6 +179,10 @@ class SolverConfig(BaseModel):
     model_config = _STRICT
 
     ode_solver: Literal['Ros2', 'Rodas3', 'ODESolver'] = 'Ros2'
+    # Linear solver for the Rosenbrock LHS (c0*I - J):
+    #   'block_thomas' -- JAX block-tridiagonal LU (block_solver.py), default
+    #   'banded'       -- LAPACK dgbtrf/dgbtrs on the full band (2*ni-1)
+    linear_solver: Literal['block_thomas', 'banded'] = 'block_thomas'
     use_pi_controller: bool = False
     use_print_prog: bool = True
     use_print_delta: bool = False

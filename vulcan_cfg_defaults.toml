@@ -109,6 +109,7 @@ use_ini_cold_trap = true  # bool
 
 [solver]
 ode_solver = "Ros2"  # 'Ros2' | 'Rodas3' | 'ODESolver'
+linear_solver = "block_thomas"  # 'block_thomas' | 'banded'
 use_pi_controller = false  # bool
 use_print_prog = true  # bool
 use_print_delta = false  # bool

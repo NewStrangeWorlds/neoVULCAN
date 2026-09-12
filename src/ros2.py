@@ -10,7 +10,7 @@ nz = cfg.atmosphere.nz
 
 from chemistry_jax import chemdf
 
-from ode_solver import ODESolver, zero_rows_banded
+from ode_solver import ODESolver
 
 compo = build_atm.compo
 compo_row = build_atm.compo_row
@@ -76,74 +76,25 @@ class Ros2(ODESolver):
             else:
                 diffdf = self.diffdf_no_mol
 
-        jac_fn     = self.lhs_jac_banded
-        use_banded = True
+        r  = 1. + 1./2.**0.5
+        c0 = 1. / (r * h)
 
-        r = 1. + 1./2.**0.5
+        # LHS W = c0*I - J: assemble, freeze fixed unknowns, factor once;
+        # both stages share the factorisation (cfg.solver.linear_solver picks
+        # the block-Thomas or the banded LAPACK backend).
+        solve, fixed = self.make_lhs_solver(var, atm, para, c0)
 
         df = chemdf(y, M, k).flatten() + diffdf(y, atm).flatten()
-
-        if use_banded:
-            lhs_b, bw = jac_fn(var, atm)
-            # lhs_b is in LAPACK band storage (3*bw+1 rows; main diagonal at row 2*bw).
-            if cfg.condensation.use_condense and para.fix_species_start:
-                for sp in cfg.condensation.fix_species:
-                    if not cfg.condensation.fix_species_from_coldtrap_lev:
-                        pass
-                    else:
-                        pfix_indx = atm.conden_min_lev[sp]
-                        atm.fix_sp_indx[sp] = np.arange(species.index(sp), species.index(sp) + ni*(pfix_indx), ni)
-                    df[atm.fix_sp_indx[sp]] = 0
-                    zero_rows_banded(lhs_b, bw, atm.fix_sp_indx[sp], 1./(r*h))
-            if cfg.photochemistry.use_ion:
-                df[atm.fix_e_indx] = 0
-                zero_rows_banded(lhs_b, bw, atm.fix_e_indx, 1./(r*h))
-        else:
-            lhs = jac_fn(var, atm)
-            if cfg.condensation.use_condense and para.fix_species_start:
-                for sp in cfg.condensation.fix_species:
-                    if not cfg.condensation.fix_species_from_coldtrap_lev:
-                        pass
-                    else:
-                        pfix_indx = atm.conden_min_lev[sp]
-                        atm.fix_sp_indx[sp] = np.arange(species.index(sp), species.index(sp) + ni*(pfix_indx), ni)
-                    df[atm.fix_sp_indx[sp]] = 0
-                    lhs[atm.fix_sp_indx[sp], :] = 0
-                    lhs[atm.fix_sp_indx[sp], atm.fix_sp_indx[sp]] = 1./(r*h)
-            if cfg.photochemistry.use_ion:
-                df[atm.fix_e_indx] = 0
-                lhs[atm.fix_e_indx, :] = 0
-                lhs[atm.fix_e_indx, atm.fix_e_indx] = 1./(r*h)
-            lhs_b, bw = self.store_bandM(lhs, ni, nz)
-
-        # Factor lhs_b once (dgbtrf, in-place), then back-substitute twice
-        # (one dgbtrs per stage — the W-method shares the same LHS).  Old code
-        # called scipy.linalg.solve_banded twice, which re-factored on each
-        # call; factor cost dominates the solve at bw=2*ni-1, so reuse here
-        # is a ~25-30% per-step win.  lhs_b is already in LAPACK band storage
-        # (lhs_jac_banded materialised it directly), so no padding needed.
-        ab_factored, ipiv, info = dgbtrf(lhs_b, bw, bw, overwrite_ab=1)
-        if info != 0:
-            raise RuntimeError(f"dgbtrf failed: info={info}")
-        k1_flat, info = dgbtrs(ab_factored, bw, bw, df, ipiv)
-        if info != 0:
-            raise RuntimeError(f"dgbtrs (k1) failed: info={info}")
+        df = self.mask_fixed_rhs(df, fixed)
+        k1_flat = solve(df)
         k1 = k1_flat.reshape(y.shape)
 
         yk2 = y + k1/r
         df = chemdf(yk2, M, k).flatten() + diffdf(yk2, atm).flatten()
-
-        if cfg.condensation.use_condense and para.fix_species_start:
-            for sp in cfg.condensation.fix_species:
-                df[atm.fix_sp_indx[sp]] = 0
-        if cfg.photochemistry.use_ion:
-            df[atm.fix_e_indx] = 0
+        df = self.mask_fixed_rhs(df, fixed)
 
         rhs = df - 2./(r*h)*k1_flat
-        k2, info = dgbtrs(ab_factored, bw, bw, rhs, ipiv)
-        if info != 0:
-            raise RuntimeError(f"dgbtrs (k2) failed: info={info}")
-        k2 = k2.reshape(y.shape)
+        k2 = solve(rhs).reshape(y.shape)
 
         sol = y + 3./(2.*r)*k1 + 1/(2.*r)*k2
 

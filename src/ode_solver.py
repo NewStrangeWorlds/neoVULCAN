@@ -9,7 +9,9 @@ from phy_const import kb, Navo
 nz = cfg.atmosphere.nz
 
 from chemistry_jax import neg_achemjac, chem_jac_blocks
-from jacobian_jax import _lhs_jac_banded_kernel
+from jacobian_jax import _lhs_jac_banded_kernel, _lhs_jac_blocks_kernel
+from block_solver import apply_fixed_rows, factor_block_tridiag, solve_block_tridiag
+from scipy.linalg.lapack import dgbtrf, dgbtrs
 from radiative_transfer import make_rt
 import jax.numpy as jnp
 
@@ -467,6 +469,118 @@ class ODESolver:
         ab_lapack[:bw] = 0.0
         ab_lapack[bw:] = ab
         return ab_lapack, bw
+
+    def lhs_jac_blocks(self, var, atm, c0=None):
+        """Build LHS = c0*I - dfdy in **block-tridiagonal storage**
+        ``(diag, sup_d, sub_d)`` as JAX arrays -- see
+        :func:`jacobian_jax._lhs_jac_blocks_kernel` for the layout.  Same
+        arithmetic as :meth:`lhs_jac_banded`; consumed by :mod:`block_solver`.
+
+        ``c0`` defaults to Ros2's ``1/(r*dt)`` with r = 1 + 1/sqrt(2).
+        """
+        from chemistry_jax import k_dict_to_array
+
+        if self._atm_jax is None:
+            self._build_atm_jax_cache(atm)
+        a = self._atm_jax
+
+        k_arr = k_dict_to_array(var.k)
+        if c0 is None:
+            r  = 1. + 1./np.sqrt(2.)
+            c0 = 1. / (r * var.dt)
+
+        return _lhs_jac_blocks_kernel(
+            jnp.asarray(var.y), a['M'], jnp.asarray(k_arr),
+            jnp.float64(c0),
+            a['dzi'], a['Kzz'], a['Dzz'], a['vz'], a['vs'], a['vm'],
+            a['alpha'], a['Tco'],
+            a['ms'], a['g'], a['Ti'], a['Hpi'],
+            self._gas_mask_jax, a['bot_vdep'],
+            self._use_botflux_flag, a['thermal_flag'], a['vm_bot_flag'],
+            nz=nz,
+        )
+
+    # -----------------------------------------------------------------------
+    # Rosenbrock LHS: assemble, freeze fixed unknowns, factor once
+    # -----------------------------------------------------------------------
+
+    def fixed_rows(self, atm, para):
+        """Flat indices (into ``y.reshape(-1)``) of the unknowns frozen in the
+        current step: fixed condensable species and electrons.
+
+        Also refreshes ``atm.fix_sp_indx`` when the fixed column follows the
+        cold-trap level (``fix_species_from_coldtrap_lev``), as the solvers
+        always did before calling ``zero_rows_banded``.
+        """
+        rows = []
+        if cfg.condensation.use_condense and para.fix_species_start:
+            for sp in cfg.condensation.fix_species:
+                if cfg.condensation.fix_species_from_coldtrap_lev:
+                    pfix_indx = atm.conden_min_lev[sp]
+                    atm.fix_sp_indx[sp] = np.arange(
+                        species.index(sp), species.index(sp) + ni * pfix_indx, ni)
+                rows.append(np.asarray(atm.fix_sp_indx[sp], dtype=np.intp))
+        if cfg.photochemistry.use_ion:
+            rows.append(np.asarray(atm.fix_e_indx, dtype=np.intp))
+        return rows
+
+    @staticmethod
+    def mask_fixed_rhs(rhs_flat, rows):
+        """Zero the RHS entries of frozen unknowns (in place) and return it."""
+        for r in rows:
+            rhs_flat[r] = 0.
+        return rhs_flat
+
+    def make_lhs_solver(self, var, atm, para, c0):
+        """Assemble ``W = c0*I - dfdy`` for the current state, freeze the fixed
+        unknowns, factor once, and return ``(solve, rows)``:
+
+        ``solve(rhs_flat) -> x_flat`` solves ``W x = rhs`` for a flat
+        ``(nz*ni,)`` right-hand side (call it once per Rosenbrock stage; the
+        factorisation is shared), and ``rows`` is the list of frozen flat
+        indices from :meth:`fixed_rows` for :meth:`mask_fixed_rhs`.
+
+        The backend follows ``cfg.solver.linear_solver``:
+
+        * ``'block_thomas'`` -- block-tridiagonal LU in JAX
+          (:mod:`block_solver`), roughly half the cost of the banded LU.
+        * ``'banded'``       -- LAPACK ``dgbtrf``/``dgbtrs`` on the full band.
+        """
+        rows = self.fixed_rows(atm, para)
+
+        if cfg.solver.linear_solver == 'block_thomas':
+            diag, sup_d, sub_d = self.lhs_jac_blocks(var, atm, c0=c0)
+            if rows:
+                mask = np.zeros(nz * ni, dtype=bool)
+                for r in rows:
+                    mask[r] = True
+                diag, sup_d, sub_d = apply_fixed_rows(
+                    diag, sup_d, sub_d, jnp.asarray(mask.reshape(nz, ni)),
+                    jnp.float64(c0))
+            factors = factor_block_tridiag(diag, sup_d, sub_d)
+
+            def solve(rhs_flat):
+                x = solve_block_tridiag(*factors, jnp.asarray(rhs_flat).reshape(nz, ni))
+                return np.asarray(x).reshape(-1)
+
+        elif cfg.solver.linear_solver == 'banded':
+            lhs_b, bw = self.lhs_jac_banded(var, atm, c0=c0)
+            for r in rows:
+                zero_rows_banded(lhs_b, bw, r, c0)
+            ab_f, ipiv, info = dgbtrf(lhs_b, bw, bw, overwrite_ab=1)
+            if info != 0:
+                raise RuntimeError(f"dgbtrf failed: info={info}")
+
+            def solve(rhs_flat):
+                x, info_s = dgbtrs(ab_f, bw, bw, rhs_flat, ipiv)
+                if info_s != 0:
+                    raise RuntimeError(f"dgbtrs failed: info={info_s}")
+                return x
+
+        else:
+            raise ValueError(f"Unknown cfg.solver.linear_solver: {cfg.solver.linear_solver!r}")
+
+        return solve, rows
 
     def lhs_jac_steady(self, var, atm):
         """Banded -∂F/∂y for the steady-state Newton finisher.

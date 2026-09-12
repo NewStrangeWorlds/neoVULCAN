@@ -130,7 +130,7 @@ neoVULCAN/
 │   ├── chemistry_jax.py       auto-generated; do not edit by hand
 │   ├── integration.py         time-stepping loop
 │   ├── ros2.py, rodas3.py     Rosenbrock ODE solvers
-│   ├── ode_solver.py          base ODE machinery, banded Jacobian assembly
+│   ├── ode_solver.py          base ODE machinery, Jacobian assembly, LHS factorisation
 │   ├── build_atm.py, store.py atmospheric setup, data containers
 │   ├── rates.py               reaction-rate reader
 │   ├── radiative_transfer.py  two-stream / DisORT photochemistry

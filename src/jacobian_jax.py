@@ -6,10 +6,15 @@ of Python+NumPy index arithmetic per step to scatter chemistry blocks into
 banded form, add the c0 identity, and subtract eddy + molecular diffusion
 terms (including bottom/top boundary conditions).
 
-This module fuses all of that into a single JIT-compiled JAX kernel.  The
-caller passes flat arrays; the kernel returns the banded matrix `ab` of
-shape `(2*bw+1, nz*ni)` (with `bw = 2*ni-1`) ready for
-`scipy.linalg.solve_banded`.
+This module fuses all of that into a single JIT-compiled JAX kernel.  Two
+storage layouts are produced from the same arithmetic:
+
+* :func:`_lhs_jac_banded_kernel` returns the banded matrix `ab` of shape
+  `(2*bw+1, nz*ni)` (with `bw = 2*ni-1`) ready for `scipy.linalg.solve_banded`
+  / LAPACK `dgbtrf` (``cfg.solver.linear_solver = "banded"``).
+* :func:`_lhs_jac_blocks_kernel` returns the block-tridiagonal form
+  (dense diagonal blocks, diagonal off-blocks) consumed by
+  :mod:`block_solver` (``cfg.solver.linear_solver = "block_thomas"``).
 
 Numerical layout matches the NumPy implementation exactly so the regression
 test gates correctness end-to-end.
@@ -24,78 +29,25 @@ from chemistry_jax import ni, _chemdf_single, _jac_vmap
 from phy_const import kb, Navo
 
 
-@partial(jax.jit, static_argnames=('nz',))
-def _lhs_jac_banded_kernel(y, M, k, c0,
-                           dzi, Kzz, Dzz, vz, vs, vm,
-                           alpha, Tco, ms, g, Ti, Hpi,
-                           gas_mask, bot_vdep,
-                           use_botflux_flag, thermal_flag, vm_bot_flag,
-                           nz):
-    """Pure-JAX assembly of the banded LHS Jacobian = c0*I - dfdy.
+def _diffusion_bands(y, dzi, Kzz, Dzz, vz, vs, vm,
+                     alpha, Tco, ms, g, Ti, Hpi,
+                     gas_mask, bot_vdep,
+                     use_botflux_flag, thermal_flag, vm_bot_flag,
+                     nz):
+    """Transport (eddy + molecular diffusion + advection) contributions to
+    the LHS Jacobian, as three ``(nz, ni)`` arrays already carrying the
+    ``-dfdy`` sign.
 
-    Pass c0 = 1/(r*dt) for the Rosenbrock LHS; pass c0 = 0 to obtain the
-    pure steady-state Jacobian -dfdy used by the Newton finisher.
+    ``diag_diff[iz, s]``  adds to the main diagonal of layer ``iz``.
+    ``upper_diff[iz, s]`` is the coupling of layer ``iz-1`` to layer ``iz``
+    (super-diagonal block ``U_{iz-1}``, diagonal in species); row 0 unused.
+    ``lower_diff[iz, s]`` is the coupling of layer ``iz+1`` to layer ``iz``
+    (sub-diagonal block ``L_{iz+1}``, diagonal in species); row nz-1 unused.
 
-    Inputs
-    ------
-    y         : (nz, ni)        number density
-    M         : (nz,)           total density
-    k         : (nr+1, nz)      rate coefficients
-    c0        : scalar          identity coefficient on the main diagonal
-    dzi       : (nz-1,)         inter-layer spacings
-    Kzz       : (nz-1,)         eddy diffusion
-    Dzz       : (nz-1, ni)      molecular diffusion (per species);
-                                pass zeros to disable mol-diff (no_mol path)
-    vz        : (nz-1,)         vertical velocity at half-levels
-    vs        : (nz-1, ni)      settling velocity at half-levels (per species);
-                                pass zeros if settling disabled
-    vm        : (nz-1, ni)      molecular-diffusion drift velocity at half-levels
-                                (per species, same layout as vs); pass zeros if
-                                not used.  Use vm_bot_flag to drop the bottom
-                                contribution (the settling_vm variant).
-    alpha     : (ni,)           thermal diffusion factor
-    Tco       : (nz,)           temperature at cell centres
-    ms        : (ni,)           species molecular weight
-    g         : (nz,)           gravity
-    Ti        : (nz-1,)         interface temperature
-    Hpi       : (nz-1,)         interface scale height
-    gas_mask  : (ni,)           1.0 for gas species, 0.0 for non-gas
-                                (use_condense=False  → all ones)
-    bot_vdep  : (ni,)           deposition velocities at the bottom
-    use_botflux_flag : 0.0 or 1.0
-    thermal_flag     : 0.0 or 1.0   multiplies the mol-diff thermal drift bracket
-                                    (-1/Hpi + ms*g/(Navo*kb*Ti) + alpha*dT/Ti).
-                                    Pass 1.0 for the standard thermal mol-diff;
-                                    pass 0.0 for the vm-advection variants where
-                                    the drift is encoded in vm instead.
-    vm_bot_flag      : 0.0 or 1.0   multiplies the vm contributions at the
-                                    bottom boundary (j=0).  Pass 1.0 normally;
-                                    pass 0.0 for the settling_vm variant where
-                                    vm is absent at the bottom.  (Note: this
-                                    zeroes only the j=0 boundary contribution;
-                                    vm[0] is still used in the middle-layer
-                                    j=1 upwind, matching the original numpy.)
-    nz        : static int      number of vertical layers
+    Shared by the banded and the block-form kernels so both see identical
+    floating-point arithmetic.  See :func:`_lhs_jac_banded_kernel` for the
+    meaning of the inputs.
     """
-    bw = 2 * ni - 1
-
-    # ------------------------------------------------------------------
-    # 1. Chemistry Jacobian blocks (nz, ni, ni)
-    #    banded position: ab[bw + si - sj, iz*ni + sj] = -jac[iz, si, sj]
-    # ------------------------------------------------------------------
-    jac = _jac_vmap(y, M, k)
-
-    ab = jnp.zeros((2 * bw + 1, ni * nz))
-    si, sj = jnp.mgrid[0:ni, 0:ni]                # (ni, ni)
-    row_chem = bw + si - sj                       # (ni, ni)
-    col_chem = jnp.arange(nz)[:, None, None] * ni + sj  # (nz, ni, ni)
-    ab = ab.at[row_chem[None], col_chem].set(-jac)
-
-    # ------------------------------------------------------------------
-    # 2. Identity: add c0 to main diagonal (row bw)
-    # ------------------------------------------------------------------
-    ab = ab.at[bw].add(c0)
-
     # ------------------------------------------------------------------
     # 3. Diffusion: assemble contributions for the three active banded
     #    rows (bw, bw-ni, bw+ni) as (nz, ni) arrays, then add at the end.
@@ -237,6 +189,85 @@ def _lhs_jac_banded_kernel(y, M, k, c0,
     topL_vm = vm_pos[-1] / dzi[-1]                                         # (ni,)
     lower_diff = lower_diff.at[nz - 2].add(-(topL_eddy + topL_mol + topL_vs + topL_vm))
 
+    return diag_diff, upper_diff, lower_diff
+
+
+@partial(jax.jit, static_argnames=('nz',))
+def _lhs_jac_banded_kernel(y, M, k, c0,
+                           dzi, Kzz, Dzz, vz, vs, vm,
+                           alpha, Tco, ms, g, Ti, Hpi,
+                           gas_mask, bot_vdep,
+                           use_botflux_flag, thermal_flag, vm_bot_flag,
+                           nz):
+    """Pure-JAX assembly of the banded LHS Jacobian = c0*I - dfdy.
+
+    Pass c0 = 1/(r*dt) for the Rosenbrock LHS; pass c0 = 0 to obtain the
+    pure steady-state Jacobian -dfdy used by the Newton finisher.
+
+    Inputs
+    ------
+    y         : (nz, ni)        number density
+    M         : (nz,)           total density
+    k         : (nr+1, nz)      rate coefficients
+    c0        : scalar          identity coefficient on the main diagonal
+    dzi       : (nz-1,)         inter-layer spacings
+    Kzz       : (nz-1,)         eddy diffusion
+    Dzz       : (nz-1, ni)      molecular diffusion (per species);
+                                pass zeros to disable mol-diff (no_mol path)
+    vz        : (nz-1,)         vertical velocity at half-levels
+    vs        : (nz-1, ni)      settling velocity at half-levels (per species);
+                                pass zeros if settling disabled
+    vm        : (nz-1, ni)      molecular-diffusion drift velocity at half-levels
+                                (per species, same layout as vs); pass zeros if
+                                not used.  Use vm_bot_flag to drop the bottom
+                                contribution (the settling_vm variant).
+    alpha     : (ni,)           thermal diffusion factor
+    Tco       : (nz,)           temperature at cell centres
+    ms        : (ni,)           species molecular weight
+    g         : (nz,)           gravity
+    Ti        : (nz-1,)         interface temperature
+    Hpi       : (nz-1,)         interface scale height
+    gas_mask  : (ni,)           1.0 for gas species, 0.0 for non-gas
+                                (use_condense=False  → all ones)
+    bot_vdep  : (ni,)           deposition velocities at the bottom
+    use_botflux_flag : 0.0 or 1.0
+    thermal_flag     : 0.0 or 1.0   multiplies the mol-diff thermal drift bracket
+                                    (-1/Hpi + ms*g/(Navo*kb*Ti) + alpha*dT/Ti).
+                                    Pass 1.0 for the standard thermal mol-diff;
+                                    pass 0.0 for the vm-advection variants where
+                                    the drift is encoded in vm instead.
+    vm_bot_flag      : 0.0 or 1.0   multiplies the vm contributions at the
+                                    bottom boundary (j=0).  Pass 1.0 normally;
+                                    pass 0.0 for the settling_vm variant where
+                                    vm is absent at the bottom.  (Note: this
+                                    zeroes only the j=0 boundary contribution;
+                                    vm[0] is still used in the middle-layer
+                                    j=1 upwind, matching the original numpy.)
+    nz        : static int      number of vertical layers
+    """
+    bw = 2 * ni - 1
+
+    # ------------------------------------------------------------------
+    # 1. Chemistry Jacobian blocks (nz, ni, ni)
+    #    banded position: ab[bw + si - sj, iz*ni + sj] = -jac[iz, si, sj]
+    # ------------------------------------------------------------------
+    jac = _jac_vmap(y, M, k)
+
+    ab = jnp.zeros((2 * bw + 1, ni * nz))
+    si, sj = jnp.mgrid[0:ni, 0:ni]                # (ni, ni)
+    row_chem = bw + si - sj                       # (ni, ni)
+    col_chem = jnp.arange(nz)[:, None, None] * ni + sj  # (nz, ni, ni)
+    ab = ab.at[row_chem[None], col_chem].set(-jac)
+
+    # ------------------------------------------------------------------
+    # 2. Identity: add c0 to main diagonal (row bw)
+    # ------------------------------------------------------------------
+    ab = ab.at[bw].add(c0)
+
+    diag_diff, upper_diff, lower_diff = _diffusion_bands(
+        y, dzi, Kzz, Dzz, vz, vs, vm, alpha, Tco, ms, g, Ti, Hpi,
+        gas_mask, bot_vdep, use_botflux_flag, thermal_flag, vm_bot_flag, nz)
+
     # ------------------------------------------------------------------
     # 4. Add diffusion contributions to the three active banded rows
     # ------------------------------------------------------------------
@@ -245,3 +276,39 @@ def _lhs_jac_banded_kernel(y, M, k, c0,
     ab = ab.at[bw + ni].add(lower_diff.reshape(-1))
 
     return ab
+
+
+@partial(jax.jit, static_argnames=('nz',))
+def _lhs_jac_blocks_kernel(y, M, k, c0,
+                           dzi, Kzz, Dzz, vz, vs, vm,
+                           alpha, Tco, ms, g, Ti, Hpi,
+                           gas_mask, bot_vdep,
+                           use_botflux_flag, thermal_flag, vm_bot_flag,
+                           nz):
+    """Block-tridiagonal form of the LHS Jacobian ``c0*I - dfdy``.
+
+    Same inputs and arithmetic as :func:`_lhs_jac_banded_kernel`, but the
+    matrix is returned in the storage the block-Thomas solver consumes:
+
+    diag  : (nz, ni, ni)   dense diagonal blocks  ``D_iz``
+    sup_d : (nz-1, ni)     diagonal of the super-diagonal block ``U_iz``
+                           (coupling of layer iz to layer iz+1), iz = 0..nz-2
+    sub_d : (nz-1, ni)     diagonal of the sub-diagonal block ``L_{iz+1}``
+                           (coupling of layer iz+1 to layer iz), iz = 0..nz-2
+
+    Off-diagonal blocks are diagonal in species because transport acts on
+    each species separately; only chemistry couples species, and only
+    within a layer.  Nothing is scattered into band storage, so this is
+    both cheaper than the banded kernel and 3x smaller in memory.
+    """
+    jac = _jac_vmap(y, M, k)                                    # (nz, ni, ni)
+    diag_diff, upper_diff, lower_diff = _diffusion_bands(
+        y, dzi, Kzz, Dzz, vz, vs, vm, alpha, Tco, ms, g, Ti, Hpi,
+        gas_mask, bot_vdep, use_botflux_flag, thermal_flag, vm_bot_flag, nz)
+
+    di = jnp.arange(ni)
+    # Same operation order as the banded kernel: (-jac + c0) + diag_diff.
+    diag = (-jac).at[:, di, di].add(c0).at[:, di, di].add(diag_diff)
+    sup_d = upper_diff[1:]      # U_iz[s, s]     = upper_diff[iz + 1, s]
+    sub_d = lower_diff[:-1]     # L_{iz+1}[s, s] = lower_diff[iz, s]
+    return diag, sup_d, sub_d

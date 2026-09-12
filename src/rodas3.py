@@ -45,7 +45,6 @@ HD189 / hot-Jupiter setup.
 """
 import numpy as np
 import scipy
-from scipy.linalg.lapack import dgbtrf, dgbtrs
 
 from neovulcan_runtime import get_cfg
 cfg = get_cfg()
@@ -56,7 +55,7 @@ nz = cfg.atmosphere.nz
 
 from chemistry_jax import chemdf
 
-from ode_solver import ODESolver, zero_rows_banded
+from ode_solver import ODESolver
 
 compo = build_atm.compo
 compo_row = build_atm.compo_row
@@ -119,53 +118,17 @@ class Rodas3(ODESolver):
                 "Rodas3 does not (yet) support use_moldiff=False; use Ros2.")
 
         diffdf  = self.diffdf
-        jac_fn  = self.lhs_jac_banded
         c0      = 1.0 / (_GAMMA * h)        # = 2/h
 
-        # --- LHS (shared across all 4 stages) ---
-        lhs_b, bw = jac_fn(var, atm, c0=c0)
-        # lhs_b is in LAPACK band storage (3*bw+1 rows; main diagonal at row 2*bw).
+        # --- LHS (shared across all 4 stages): assemble, freeze fixed
+        # unknowns, factor ONCE.  cfg.solver.linear_solver picks the
+        # block-Thomas (JAX) or the banded LAPACK backend; either way the
+        # factorisation is reused by every stage, which is what makes a
+        # 4-stage method pay off (without it Rodas3 is slower than Ros2).
+        _solve, _fixed = self.make_lhs_solver(var, atm, para, c0)
 
-        # Boundary/condensation/ion handling — same pattern as Ros2.
-        if cfg.condensation.use_condense and para.fix_species_start:
-            for sp in cfg.condensation.fix_species:
-                if cfg.condensation.fix_species_from_coldtrap_lev:
-                    pfix_indx = atm.conden_min_lev[sp]
-                    atm.fix_sp_indx[sp] = np.arange(
-                        species.index(sp),
-                        species.index(sp) + ni * pfix_indx, ni)
-                zero_rows_banded(lhs_b, bw, atm.fix_sp_indx[sp], c0)
-        if cfg.photochemistry.use_ion:
-            zero_rows_banded(lhs_b, bw, atm.fix_e_indx, c0)
-
-        # Factor the banded LHS ONCE (LAPACK dgbtrf) so the 4 stages share
-        # one LU factorisation.  scipy.linalg.solve_banded recomputes the
-        # LU on every call, which would be ~3× more work for a 4-stage
-        # method.  lhs_jac_banded already returns the LAPACK
-        # (2*kl+ku+1, n) layout (extra rows for fill-in during pivoting).
-        kl = ku = bw
-        lu, ipiv, info = dgbtrf(lhs_b, kl, ku, overwrite_ab=1)
-        if info != 0:
-            raise RuntimeError(
-                f"Rodas3 banded LU factorisation failed (LAPACK dgbtrf "
-                f"info={info}); singular or ill-conditioned LHS.")
-
-        def _solve(rhs):
-            x, info_s = dgbtrs(lu, kl, ku, rhs, ipiv, overwrite_b=0)
-            if info_s != 0:
-                raise RuntimeError(
-                    f"Rodas3 banded back-substitution failed "
-                    f"(LAPACK dgbtrs info={info_s}).")
-            return x
-
-        # Helper to zero-out fixed-species/ion entries in any RHS vector.
         def _mask_rhs(df):
-            if cfg.condensation.use_condense and para.fix_species_start:
-                for sp in cfg.condensation.fix_species:
-                    df[atm.fix_sp_indx[sp]] = 0
-            if cfg.photochemistry.use_ion:
-                df[atm.fix_e_indx] = 0
-            return df
+            return self.mask_fixed_rhs(df, _fixed)
 
         # --- Stage 1: W·k1 = f(y_n) ---
         f1 = (chemdf(y, M, k).flatten() + diffdf(y, atm).flatten())
